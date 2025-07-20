@@ -1,0 +1,25 @@
+# AI Image Analyzer Requirements
+# Core web framework
+flask==3.1.1
+flask-socketio==5.5.1
+flask-cors==6.0.1
+
+# AI and ML libraries - MIGRATED to new package
+google-genai>=0.8.0
+pillow==11.3.0
+
+# Image metadata
+piexif>=1.1.3
+
+# HTTP requests
+requests==2.32.4
+
+# Utilities - built-in modules, no installation needed
+# pathlib, uuid, threading, base64 are built-in
+
+# Development and logging
+python-dotenv==1.1.1
+psutil>=5.9.0  # For system monitoring
+
+# Optional: For enhanced concurrent processing
+eventlet>=0.35.0  # Better WebSocket support

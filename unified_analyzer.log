@@ -1,0 +1,2 @@
+2025-07-20 15:24:51,985 - unified_analyzer - INFO - Unified AI Image Analyzer v3.0 - Logging initialized
+2025-07-20 15:24:51,990 - unified_analyzer - ERROR - Source directory not found: J:\nonexistent_folder
