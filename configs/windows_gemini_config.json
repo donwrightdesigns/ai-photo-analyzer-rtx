@@ -1,0 +1,73 @@
+{
+  "config_name": "Windows + Gemini Cloud",
+  "description": "Configuration for Windows users using Google Gemini cloud API",
+  "environment": {
+    "platform": "windows",
+    "model_type": "gemini",
+    "requires_gpu": false,
+    "requires_docker": false,
+    "requires_wsl": false
+  },
+  "model_settings": {
+    "model_type": "gemini",
+    "gemini_model_name": "gemini-2.0-flash-exp",
+    "api_key_required": true,
+    "api_key_env_var": "GOOGLE_API_KEY"
+  },
+  "processing_settings": {
+    "max_workers": 4,
+    "timeout": 120,
+    "optimize_images": true,
+    "max_dimension": 1024,
+    "quality": 85,
+    "min_dimension": 200
+  },
+  "system_monitoring": {
+    "check_lightroom": true,
+    "max_memory_usage": 0.8,
+    "max_cpu_usage": 0.7
+  },
+  "output_settings": {
+    "generate_xmp": false,
+    "modify_exif": true,
+    "enable_gallery_critique": false,
+    "critique_threshold": 5,
+    "output_file": "gemini_analysis_results.csv",
+    "log_file": "gemini_analyzer.log"
+  },
+  "installation": {
+    "python_version": "3.9+",
+    "required_packages": [
+      "google-genai",
+      "Pillow",
+      "piexif",
+      "psutil",
+      "flask",
+      "flask-socketio"
+    ],
+    "optional_packages": [],
+    "setup_instructions": [
+      "1. Install Python 3.9 or higher",
+      "2. Create virtual environment: python -m venv venv",
+      "3. Activate environment: venv\\Scripts\\activate",
+      "4. Install packages: pip install -r requirements_gemini.txt",
+      "5. Get Google API key from https://makersuite.google.com/app/apikey",
+      "6. Set environment variable: set GOOGLE_API_KEY=your_key_here",
+      "7. Run: python scripts/unified_analyzer.py --model gemini [directory]"
+    ]
+  },
+  "features": {
+    "supports_web_gui": true,
+    "supports_batch_processing": true,
+    "supports_xmp_sidecar": true,
+    "supports_exif_metadata": true,
+    "supports_progress_tracking": true,
+    "supports_gallery_critique": true
+  },
+  "performance": {
+    "expected_speed": "Fast (cloud processing)",
+    "memory_usage": "Low",
+    "internet_required": true,
+    "cost_per_image": "~$0.001-0.01 (varies by API usage)"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "config_name": "Windows + WSL2 (NO GPU)",
+  "description": "Configuration for Windows users utilizing WSL2 without GPU",
+  "environment": {
+    "platform": "wsl2",
+    "model_type": "llava",
+    "requires_gpu": false,
+    "requires_docker": false,
+    "requires_wsl": true
+  },
+  "model_settings": {
+    "model_type": "llava",
+    "ollama_model_name": "llava:7b",
+    "api_key_required": false,
+    "ollama_url": "http://localhost:11434/api/generate"
+  },
+  "processing_settings": {
+    "max_workers": 2,
+    "timeout": 180,
+    "optimize_images": true,
+    "max_dimension": 1024,
+    "quality": 85,
+    "min_dimension": 200
+  },
+  "system_monitoring": {
+    "check_lightroom": false,
+    "max_memory_usage": 0.8,
+    "max_cpu_usage": 0.7
+  },
+  "output_settings": {
+    "generate_xmp": false,
+    "modify_exif": true,
+    "enable_gallery_critique": false,
+    "critique_threshold": 5,
+    "output_file": "wsl2_ollama_analysis_results.csv",
+    "log_file": "wsl2_ollama_analyzer.log"
+  },
+  "installation": {
+    "python_version": "3.9+",
+    "required_packages": [
+      "Pillow",
+      "piexif",
+      "psutil",
+      "flask",
+      "flask-socketio"
+    ],
+    "optional_packages": [],
+    "setup_instructions": [
+      "1. Install WSL2 and Ubuntu distribution",
+      "2. Install Python 3.9+: sudo apt update && sudo apt install python3-pip python3-venv",
+      "3. Create virtual environment: python3 -m venv venv",
+      "4. Activate environment: source venv/bin/activate",
+      "5. Install packages: pip install -r requirements_ollama.txt",
+      "6. Install Ollama: curl -fsSL https://ollama.com/install.sh | sh",
+      "7. Start Ollama: ollama serve",
+      "8. Pull model: ollama pull llava:7b",
+      "9. Run: python scripts/unified_analyzer.py --model llava [directory]"
+    ]
+  },
+  "features": {
+    "supports_web_gui": true,
+    "supports_batch_processing": true,
+    "supports_xmp_sidecar": true,
+    "supports_exif_metadata": true,
+    "supports_progress_tracking": true,
+    "supports_gallery_critique": true
+  },
+  "performance": {
+    "expected_speed": "Moderate to slow",
+    "memory_usage": "Moderate",
+    "internet_required": false
+  }
+}

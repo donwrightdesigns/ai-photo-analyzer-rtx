@@ -1,0 +1,74 @@
+{
+  "config_name": "Windows + WSL2 with GPU",
+  "description": "Configuration for Windows users utilizing WSL2 with GPU",
+  "environment": {
+    "platform": "wsl2",
+    "model_type": "llava",
+    "requires_gpu": true,
+    "requires_docker": false,
+    "requires_wsl": true
+  },
+  "model_settings": {
+    "model_type": "llava",
+    "ollama_model_name": "llava:13b",
+    "api_key_required": false,
+    "ollama_url": "http://host.docker.internal:11434/api/generate"
+  },
+  "processing_settings": {
+    "max_workers": 4,
+    "timeout": 120,
+    "optimize_images": true,
+    "max_dimension": 1024,
+    "quality": 85,
+    "min_dimension": 200
+  },
+  "system_monitoring": {
+    "check_lightroom": true,
+    "max_memory_usage": 0.8,
+    "max_cpu_usage": 0.7
+  },
+  "output_settings": {
+    "generate_xmp": false,
+    "modify_exif": true,
+    "enable_gallery_critique": false,
+    "critique_threshold": 5,
+    "output_file": "wsl2_gpu_ollama_analysis.csv",
+    "log_file": "wsl2_gpu_ollama_analyzer.log"
+  },
+  "installation": {
+    "python_version": "3.9+",
+    "required_packages": [
+      "Pillow",
+      "piexif",
+      "psutil",
+      "flask",
+      "flask-socketio"
+    ],
+    "optional_packages": [
+      "cupy"  
+    ],
+    "setup_instructions": [
+      "1. Install Docker and enable WSL2 integration",
+      "2. Create Docker network: docker network create my_network",
+      "3. Install WSL2 and Python 3.9+",
+      "4. Create virtual environment: python3 -m venv venv",
+      "5. Activate environment: source venv/bin/activate",
+      "6. Install packages: pip install -r requirements_ollama.txt",
+      "7. Run Ollama container: docker run --network my_network -p 11434:11434 ollama",
+      "8. Run: python scripts/unified_analyzer.py --model llava [directory]"
+    ]
+  },
+  "features": {
+    "supports_web_gui": true,
+    "supports_batch_processing": true,
+    "supports_xmp_sidecar": true,
+    "supports_exif_metadata": true,
+    "supports_progress_tracking": true,
+    "supports_gallery_critique": true
+  },
+  "performance": {
+    "expected_speed": "Fast (with GPU acceleration)",
+    "memory_usage": "High",
+    "internet_required": false
+  }
+}
