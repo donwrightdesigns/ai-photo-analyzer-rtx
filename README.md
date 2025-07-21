@@ -1,3 +1,4 @@
+![logo-temp](https://github.com/user-attachments/assets/31c0296e-5553-4edc-976a-58ffad86c504)
 # AI Image Analyzer
 
 A comprehensive image analysis system using AI models to automatically tag, categorize, and critique photographs. This project includes standalone scripts, a web GUI, and a Lightroom plugin.
