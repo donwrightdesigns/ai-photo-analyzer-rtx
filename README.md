@@ -1,6 +1,8 @@
-# AI Image Analyzer
+# AI Photo Analyzer and XMP culling with HTML GUI and Adobe LIGHTROOM plugin 
 
-A comprehensive image analysis system using AI models to automatically tag, categorize, and critique photographs. This project includes standalone scripts, a web GUI, and a Lightroom plugin.
+A comprehensive image analysis system using AI models to automatically tag, categorize, assess and critique photographs helping organize, enormous libraries, or portfolios. This project includes standalone scripts, a web GUI, and a Lightroom plugin.
+
+This was created by a professional photographer 20 years of photo archives 
 
 ## Features
 
@@ -168,3 +170,4 @@ Don Wright - Created with AI assistance
 - Lightroom plugin integration
 - EXIF metadata writing
 - Batch processing capabilities
+
