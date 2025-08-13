@@ -26,6 +26,7 @@
                         <h5 class="card-title mb-0"><i class="fas fa-cog me-2"></i>Control Panel</h5>
                     </div>
                     <div class="card-body">
+
                         <!-- Model Status -->
                         <div class="mb-3">
                             <h6>Model Status</h6>
@@ -38,23 +39,46 @@
                         <div class="mb-3">
                             <h6>Model Selection</h6>
                             <div class="mb-2">
-                                <input type="radio" class="form-check-input" id="model-local" name="model-type" value="local" checked>
-                                <label class="form-check-label ms-2" for="model-local">
-                                    <i class="fas fa-desktop me-1"></i>Local Model (Ollama)
+                                <input type="radio" class="form-check-input" id="model-ollama" name="model-type" value="ollama">
+                                <label class="form-check-label ms-2" for="model-ollama">
+                                    <i class="fas fa-desktop me-1"></i>Ollama (Local)
                                 </label>
                             </div>
                             <div class="mb-2">
-                                <input type="radio" class="form-check-input" id="model-cloud" name="model-type" value="cloud">
-                                <label class="form-check-label ms-2" for="model-cloud">
-                                    <i class="fas fa-cloud me-1"></i>Cloud Model (Google Gemini)
+                                <input type="radio" class="form-check-input" id="model-gemini" name="model-type" value="gemini" checked>
+                                <label class="form-check-label ms-2" for="model-gemini">
+                                    <i class="fas fa-cloud me-1"></i>Google Gemini (Cloud)
+                                </label>
+                            </div>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="model-bakllava" name="model-type" value="bakllava">
+                                <label class="form-check-label ms-2" for="model-bakllava">
+                                    <i class="fas fa-microchip me-1"></i>BakLLaVA (Local)
                                 </label>
                             </div>
                         </div>
 
-                        <!-- Local Model Settings -->
-                        <div id="local-settings" class="mb-3">
-                            <label for="local-model-select" class="form-label">Local Model</label>
-                            <select class="form-select" id="local-model-select">
+                        <!-- Analysis Style Selection -->
+                        <div class="mb-3">
+                            <h6>Analysis Style</h6>
+                            <label for="prompt-profile" class="form-label">Evaluation Perspective</label>
+                            <select class="form-select" id="prompt-profile">
+                                <option value="professional_art_critic">Professional Art Critic</option>
+                                <option value="family_archivist">Family Memory Keeper</option>
+                                <option value="commercial_photographer">Commercial Photographer</option>
+                                <option value="social_media_curator">Social Media Expert</option>
+                                <option value="documentary_journalist">Documentary Journalist</option>
+                                <option value="travel_blogger">Travel Content Creator</option>
+                            </select>
+                            <small class="form-text text-muted" id="profile-description">
+                                Gallery curator perspective focusing on artistic merit and technical excellence
+                            </small>
+                        </div>
+
+                        <!-- Ollama Settings -->
+                        <div id="ollama-settings" class="mb-3" style="display: none;">
+                            <label for="ollama-model-select" class="form-label">Ollama Model</label>
+                            <select class="form-select" id="ollama-model-select">
                                 <option value="llava:13b">LLaVA 13B</option>
                                 <option value="llava:7b">LLaVA 7B</option>
                                 <option value="llava:34b">LLaVA 34B</option>
@@ -64,8 +88,19 @@
                             </button>
                         </div>
 
-                        <!-- Cloud Model Settings -->
-                        <div id="cloud-settings" class="mb-3" style="display: none;">
+                        <!-- BakLLaVA Settings -->
+                        <div id="bakllava-settings" class="mb-3" style="display: none;">
+                            <label for="bakllava-model-select" class="form-label">BakLLaVA Model</label>
+                            <select class="form-select" id="bakllava-model-select">
+                                <option value="BakLLaVA-1-Q4_K_M.gguf">BakLLaVA 4-bit Quantized</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                BakLLaVA models located in J:\models\BakLLaVA\
+                            </small>
+                        </div>
+
+                        <!-- Gemini Settings -->
+                        <div id="gemini-settings" class="mb-3">
                             <label for="api-key" class="form-label">Google API Key</label>
                             <div class="input-group">
                                 <input type="password" class="form-control" id="api-key" 
@@ -93,12 +128,12 @@
 
                         <!-- Options -->
                         <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="write-exif" checked>
-                                <label class="form-check-label" for="write-exif">
-                                    Write analysis to EXIF metadata
-                                </label>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="write-exif" checked>
+                            <label class="form-check-label" for="write-exif">
+                                Write analysis to XMP sidecar files
+                            </label>
+                        </div>
                         </div>
 
                         <!-- Action Buttons -->
@@ -207,7 +242,7 @@
     </template>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
     <script>
         // Initialize with session ID from Flask
         const SESSION_ID = '{{ session_id }}';

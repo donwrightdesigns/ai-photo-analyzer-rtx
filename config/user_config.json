@@ -1,0 +1,9 @@
+{
+  "model_directory": "J:\\models",
+  "gemini_api_key": "use_env_var",
+  "hf_token": "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",
+  "auto_download_models": false,
+  "default_goal": "archive_cull",
+  "default_output": "xmp",
+  "max_workers": 8
+}

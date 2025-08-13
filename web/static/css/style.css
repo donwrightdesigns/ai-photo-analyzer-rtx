@@ -1,3 +1,284 @@
+/* AI Image Analyzer - Enhanced Web GUI Styles */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Model status indicators */
+.model-status-online {
+    color: #28a745;
+}
+
+.model-status-offline {
+    color: #dc3545;
+}
+
+.model-status-warning {
+    color: #ffc107;
+}
+
+/* Prompt profile selection */
+#profile-description {
+    font-style: italic;
+    margin-top: 0.25rem;
+}
+
+.profile-indicator {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #e7f3ff;
+    color: #0066cc;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Model type settings visibility */
+.model-settings {
+    display: none;
+    transition: all 0.3s ease;
+}
+
+.model-settings.active {
+    display: block;
+}
+
+/* Results container */
+.results-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.result-item {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: #fff;
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.result-item:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+.image-preview {
+    text-align: center;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+.category-badge {
+    font-size: 0.75rem;
+}
+
+.subcategory-badge {
+    font-size: 0.75rem;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.tag-badge {
+    background-color: #6c757d;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.7rem;
+    margin-bottom: 0.25rem;
+}
+
+/* Star rating display */
+.stars {
+    font-size: 1.2rem;
+    color: #ffc107;
+}
+
+.star-filled {
+    color: #ffc107;
+}
+
+.star-empty {
+    color: #e9ecef;
+}
+
+/* Critique text styling */
+.critique {
+    font-style: italic;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
+/* Progress indicators */
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+/* Button states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* API Key visibility toggle */
+.api-key-visible {
+    color: #28a745;
+}
+
+.api-key-hidden {
+    color: #6c757d;
+}
+
+/* Analysis style descriptions */
+.analysis-style-card {
+    border-left: 4px solid #007bff;
+    background-color: #f8f9fa;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    border-radius: 0.25rem;
+}
+
+.analysis-style-title {
+    font-weight: 600;
+    color: #007bff;
+    margin-bottom: 0.25rem;
+}
+
+.analysis-style-description {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+/* Model selector improvements */
+.model-selector-group {
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.model-selector-group.active {
+    border-color: #007bff;
+    background-color: #f0f8ff;
+}
+
+.model-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+/* Status badges */
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .result-item .row {
+        flex-direction: column;
+    }
+    
+    .image-preview {
+        margin-bottom: 1rem;
+    }
+    
+    .tags-container {
+        justify-content: center;
+        margin-top: 0.5rem;
+    }
+}
+
+/* Loading animations */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Scrollbar styling for results container */
+.results-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.results-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.results-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.results-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Enhanced form controls */
+.form-control:focus,
+.form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Tooltip improvements */
+.tooltip-inner {
+    max-width: 300px;
+    text-align: left;
+}
+
 /* AI Image Analyzer Styles */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

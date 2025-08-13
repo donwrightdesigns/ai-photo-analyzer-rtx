@@ -102,11 +102,19 @@ echo ==========================================
 echo 🎉 Installation Complete!
 echo ==========================================
 echo.
+echo Running first-time setup wizard...
+echo.
+python setup_wizard.py
+echo.
+echo ==========================================
+echo 🚀 Ready to Use!
+echo ==========================================
+echo.
 echo Quick Start Options:
 echo.
 echo 1. WEB INTERFACE (Recommended):
 echo    python web/app.py
-echo    Then open: http://localhost:5000
+echo    Then open: http://localhost:5001
 echo.
 echo 2. COMMAND LINE - Google Gemini:
 echo    set GOOGLE_API_KEY=your_key

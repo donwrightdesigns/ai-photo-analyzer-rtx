@@ -58,8 +58,8 @@ class UnifiedConfig:
     critique_threshold: int = 5  # Only critique images scoring 5 or lower when disabled
     
     # Output settings
-    generate_xmp: bool = False  # Generate XMP sidecar files instead of EXIF
-    modify_exif: bool = True   # Modify EXIF data (when XMP is False)
+    generate_xmp: bool = TRUE  # Generate XMP sidecar files instead of EXIF
+    modify_exif: bool = False   # Modify EXIF data (when XMP is False)
     
     # Processing settings
     max_workers: int = 4

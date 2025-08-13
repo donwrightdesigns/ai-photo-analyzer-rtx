@@ -76,7 +76,7 @@ After updating, you'll see these new options in Lightroom's **Library** menu:
 
 ### Required Updates
 1. **Update Web Service URL** (if changed)
-   - Default: `http://localhost:5000`
+   - Default: `http://localhost:5001`
    - Update in Plugin Settings if you're using a different port
 
 2. **Set Model Preferences**

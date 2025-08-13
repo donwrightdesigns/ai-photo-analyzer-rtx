@@ -90,7 +90,7 @@ J:\TOOLS\ai-image-analyzer\
 All components tested and ready for use:
 
 1. **Command Line**: `python scripts/unified_analyzer.py --model llava [directory]`
-2. **Web GUI**: `python web/app.py` (then open http://localhost:5000)
+2. **Web GUI**: `python web/app.py` (then open http://localhost:5001)
 3. **Lightroom Plugin**: Install plugin folder to Lightroom
 4. **Configuration**: Run `python config_selector.py` for guided setup
 

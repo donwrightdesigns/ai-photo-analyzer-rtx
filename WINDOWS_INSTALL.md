@@ -53,7 +53,7 @@ For both local LLaVA models and cloud Gemini:
    ```cmd
    python web/app.py
    ```
-   Then open: http://localhost:5000
+   Then open: http://localhost:5001
 
 ## Detailed Installation Options
 
@@ -81,7 +81,7 @@ python scripts/enhanced_llava_analyzer_v2.py "C:\Your\Photos\Directory"
    python web/app.py
    ```
 
-2. **Open your browser to:** `http://localhost:5000`
+2. **Open your browser to:** `http://localhost:5001`
 
 3. **Use the interface to:**
    - Select your photo directory
@@ -198,7 +198,7 @@ pip install -r requirements.txt
    ```
 
 3. **Check model availability:**
-   - Web interface: http://localhost:5000
+   - Web interface: http://localhost:5001
    - Or manually: `curl http://localhost:11434/api/tags`
 
 ## Advanced Usage
