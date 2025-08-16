@@ -36,7 +36,7 @@ def download_bakllava():
     bakllava_dir.mkdir(exist_ok=True)
     
     print(f"📥 Downloading BakLLaVA to: {bakllava_dir}")
-    print(f"🔑 Using HuggingFace token: {hf_token[:10]}...")
+    print(f"🔑 Using HuggingFace token: [REDACTED]")
     
     # Files to download
     files_to_download = [
