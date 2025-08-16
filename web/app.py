@@ -20,6 +20,22 @@ import math
 from werkzeug.utils import secure_filename
 import uuid
 
+# Import the new multi-stage pipeline
+import sys
+from pathlib import Path
+
+# Add parent directory to Python path
+parent_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
+
+try:
+    from pipeline_core import MultiStageProcessingPipeline, ImageCurationEngine
+    MULTISTAGE_AVAILABLE = True
+    print("✅ Multi-stage pipeline imported successfully")
+except ImportError as e:
+    MULTISTAGE_AVAILABLE = False
+    print(f"⚠️  Multi-stage pipeline not available: {e}")
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -41,21 +57,26 @@ CONFIG = {
     'critique_threshold': 5,  # Score threshold for critique when gallery critique is disabled
     'goal_type': 'archive_culling',  # Default goal: archive_culling, gallery_selection, catalog_organization
     'test_mode': False,  # Process only first 20 images for testing
-    'prompt_profile': 'professional_art_critic'  # Default prompt profile
+    'prompt_profile': 'professional_art_critic',  # Default prompt profile
+    # Multi-stage pipeline settings
+    'use_multistage_pipeline': False,  # Enable the multi-stage IQA pipeline
+    'quality_threshold': 0.10,  # Top percentage of images to process (0.10 = top 10%)
+    'iqa_model': 'brisque',  # IQA model: 'brisque', 'niqe', 'musiq', 'topiq'
+    'use_exif': False  # Write to EXIF or XMP sidecar
 }
 
 # Global variables for processing state
 processing_jobs = {}
 active_sessions = set()
 
-# Categories and tags configuration
-DEFAULT_CATEGORIES = ["People", "Place", "Thing"]
-DEFAULT_SUB_CATEGORIES = ["Candid", "Posed", "Automotive", "Real Estate", "Landscape", 
-                         "Events", "Animal", "Product", "Food"]
-DEFAULT_TAGS = ["Strobist", "Available Light", "Natural Light", "Beautiful", "Black & White", 
-               "Timeless", "Low Quality", "Sentimental", "Action", "Minimalist", "Out of Focus", 
-               "Other", "Evocative", "Disturbing", "Boring", "Wedding", "Bride", "Groom", 
-               "Family", "Love", "Calm", "Busy"]
+# Categories and tags configuration - Original Professional Schema
+DEFAULT_CATEGORIES = ["Person", "Place", "Thing"]
+DEFAULT_SUB_CATEGORIES = ["candid", "posed", "man-made", "landscape", "animal", "object", 
+                         "house", "interior", "exterior", "nature", "scenery", "other"]
+DEFAULT_TAGS = ["artificial_light", "natural_light", "monochrome", "duplicate", "large", 
+               "small", "dark", "light", "heavy", "face", "abstract", "couple", "action", 
+               "minimalist", "blurry", "evocative", "disturbing", "boring", "wedding", 
+               "bride", "groom", "love", "calm", "busy", "automotive"]
 
 # Prompt Profiles for different analysis styles
 PROMPT_PROFILES = {
@@ -164,7 +185,7 @@ class ImageAnalyzer:
             "category": "chosen_category",
             "subcategory": "chosen_subcategory", 
             "tags": ["tag1", "tag2", "tag3"],
-            "score": 7
+            "score": 4
         }
         
         if enable_critique:
@@ -183,12 +204,12 @@ class ImageAnalyzer:
         SUB_CATEGORIES: {', '.join(DEFAULT_SUB_CATEGORIES)}
         TAGS: {', '.join(DEFAULT_TAGS)} (select 2-4 most relevant)
         
-        SCORING GUIDE (1-10 scale from {profile['name']} perspective):
-        1-2: Poor (fails to meet basic standards for this evaluation type)
-        3-4: Below Average (basic competence, limited value for intended purpose)
-        5-6: Average (meets standard expectations for this type of image)
-        7-8: Above Average (strong quality and purpose alignment)
-        9-10: Exceptional (outstanding example that excels in all criteria)
+        SCORING GUIDE (1-5 star rating from {profile['name']} perspective):
+        1 star: Poor (fails to meet basic standards for this evaluation type)
+        2 stars: Below Average (basic competence, limited value for intended purpose)
+        3 stars: Average (meets standard expectations for this type of image)
+        4 stars: Above Average (strong quality and purpose alignment)
+        5 stars: Exceptional (outstanding example that excels in all criteria)
         {critique_section}
         
         RESPOND WITH VALID JSON ONLY:
@@ -376,12 +397,22 @@ class ImageAnalyzer:
             return None
     
     def write_metadata(self, image_path, analysis_data):
-        """Write analysis data to metadata (EXIF or XMP based on configuration)"""
+        """Write analysis data to metadata based on user-selected mode"""
         try:
-            if CONFIG.get('generate_xmp', False):
-                return self.write_xmp_sidecar(image_path, analysis_data)
-            else:
-                return self.write_exif_data(image_path, analysis_data)
+            metadata_options = CONFIG.get('metadata_options', {'mode': 'xmp', 'handling': 'append'})
+            mode = metadata_options['mode']
+            
+            success = True
+            if mode == 'xmp':
+                success = self.write_xmp_sidecar(image_path, analysis_data)
+            elif mode == 'exif':
+                success = self.write_exif_data(image_path, analysis_data, metadata_options)
+            elif mode == 'both':
+                xmp_success = self.write_xmp_sidecar(image_path, analysis_data)
+                exif_success = self.write_exif_data(image_path, analysis_data, metadata_options)
+                success = xmp_success and exif_success
+            
+            return success
         except Exception as e:
             print(f"Error writing metadata: {e}")
             return False
@@ -420,7 +451,7 @@ class ImageAnalyzer:
     lr:hierarchicalSubject="{tags_str}">
     <dc:title>
         <rdf:Alt>
-            <rdf:li xml:lang="x-default">Score: {score}/10</rdf:li>
+            <rdf:li xml:lang="x-default">AI Image Analysis - {star_rating} Stars</rdf:li>
         </rdf:Alt>
     </dc:title>
     <dc:creator>
@@ -448,27 +479,35 @@ class ImageAnalyzer:
             print(f"Error writing XMP sidecar: {e}")
             return False
     
-    def write_exif_data(self, image_path, analysis_data):
-        """Write analysis data to EXIF metadata"""
+    def write_exif_data(self, image_path, analysis_data, metadata_options=None):
+        """Write analysis data to EXIF metadata with smart field mapping"""
         try:
+            if not metadata_options:
+                metadata_options = CONFIG.get('metadata_options', {'mode': 'exif', 'handling': 'append'})
+            
             # Load existing EXIF data
             try:
                 exif_dict = piexif.load(str(image_path))
             except piexif.InvalidImageDataError:
                 exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}, "thumbnail": None}
 
-            # Calculate star rating
+            # Calculate star rating from 1-10 scale to 1-5 stars  
             score = analysis_data.get('score', 0)
-            star_rating = math.ceil(score / 2) if score >= 1 else 1
+            if score <= 10:  # If score is 1-10 scale, convert to 1-5 stars
+                star_rating = max(1, min(5, math.ceil(score / 2)))
+            else:  # If score is already 1-5, use directly
+                star_rating = max(1, min(5, score))
             
-            # Check for existing high rating
+            # Handle existing rating based on metadata handling mode
+            handling_mode = metadata_options.get('handling', 'append')
             existing_rating = exif_dict.get("0th", {}).get(piexif.ImageIFD.Rating)
-            if existing_rating in [4, 5]:
-                final_rating = existing_rating
+            
+            if handling_mode == 'append' and existing_rating in [4, 5]:
+                final_rating = existing_rating  # Preserve high ratings
             else:
                 final_rating = star_rating
                 
-            # Add GALLERY tag for 5-star ratings
+            # Handle tags with append/replace logic
             tags_list = analysis_data.get('tags', [])
             if final_rating == 5 and "GALLERY" not in tags_list:
                 tags_list.append("GALLERY")
@@ -477,20 +516,52 @@ class ImageAnalyzer:
             # Set EXIF data
             exif_dict["0th"][piexif.ImageIFD.Rating] = final_rating
             
-            # Description
-            description = f"Category: {analysis_data['category']}, Subcategory: {analysis_data['subcategory']}"
-            exif_dict["0th"][piexif.ImageIFD.ImageDescription] = description.encode('utf-8')
+            # Smart field mapping for web/SEO optimization
+            web_opt = metadata_options.get('webOptimization', {})
             
-            # User comment with full analysis
-            critique = analysis_data.get('critique', 'N/A')
-            tags = ", ".join(tags_list)
-            full_comment = f"Critique: {critique} | Score: {score}/10 | Tags: {tags}"
-            exif_dict["Exif"][piexif.ExifIFD.UserComment] = full_comment.encode('utf-8')
+            # Map AI description to Alt Text (ImageDescription) for SEO
+            if web_opt.get('mapAltText', True):
+                if handling_mode == 'append':
+                    existing_desc = exif_dict.get("0th", {}).get(piexif.ImageIFD.ImageDescription, b'').decode('utf-8', errors='ignore')
+                    if existing_desc:
+                        description = f"{existing_desc} | AI: Category {analysis_data['category']}, {analysis_data['subcategory']}"
+                    else:
+                        description = f"Category: {analysis_data['category']}, Subcategory: {analysis_data['subcategory']}"
+                else:
+                    description = f"Category: {analysis_data['category']}, Subcategory: {analysis_data['subcategory']}"
+                    
+                exif_dict["0th"][piexif.ImageIFD.ImageDescription] = description.encode('utf-8')
+            
+            # Map AI tags to Keywords (via UserComment - EXIF doesn't have native keywords field)
+            if web_opt.get('mapKeywords', True):
+                tags_str = ", ".join(tags_list)
+                
+                if handling_mode == 'append':
+                    existing_comment = exif_dict.get("Exif", {}).get(piexif.ExifIFD.UserComment, b'').decode('utf-8', errors='ignore')
+                    if existing_comment and not existing_comment.startswith('Critique:'):
+                        base_comment = existing_comment
+                    else:
+                        base_comment = ""
+                else:
+                    base_comment = ""
+                
+                # Build comment with critique and tags
+                critique = analysis_data.get('critique', 'N/A')
+                if web_opt.get('mapCaption', True):
+                    full_comment = f"Critique: {critique} | Rating: {final_rating}/5 stars | Tags: {tags_str}"
+                else:
+                    full_comment = f"Rating: {final_rating}/5 stars | Tags: {tags_str}"
+                
+                if base_comment:
+                    full_comment = f"{base_comment} | AI: {full_comment}"
+                    
+                exif_dict["Exif"][piexif.ExifIFD.UserComment] = full_comment.encode('utf-8')
             
             # Save EXIF data
             exif_bytes = piexif.dump(exif_dict)
             piexif.insert(exif_bytes, str(image_path))
             
+            print(f"✅ EXIF metadata written: {image_path}")
             return True
             
         except Exception as e:
@@ -520,7 +591,7 @@ class ImageAnalyzer:
             'status': 'Starting...'
         }
         print(f"🔔 Emitting progress_update: {initial_data}")
-        socketio.emit('progress_update', initial_data)
+        socketio.emit('progress_update', initial_data, room=self.session_id)
         
         for i, image_path in enumerate(image_files):
             if not self.is_running:
@@ -536,7 +607,7 @@ class ImageAnalyzer:
                 'status': f'Analyzing {self.current_image}...'
             }
             print(f"📈 Emitting progress [{i+1}/{self.total_images}]: {self.current_image}")
-            socketio.emit('progress_update', progress_data)
+            socketio.emit('progress_update', progress_data, room=self.session_id)
             
             # Analyze image
             analysis_data = self.analyze_image(image_path)
@@ -562,7 +633,7 @@ class ImageAnalyzer:
                 socketio.emit('image_processed', {
                     'session_id': self.session_id,
                     'result': result
-                })
+                }, room=self.session_id)
             
             self.processed_count = i + 1
         
@@ -573,7 +644,7 @@ class ImageAnalyzer:
             'session_id': self.session_id,
             'total_processed': self.processed_count,
             'results': self.results
-        })
+        }, room=self.session_id)
 
 @app.route('/')
 def index():
@@ -587,12 +658,13 @@ def start_processing():
     """Start processing images in directory"""
     data = request.get_json()
     directory_path = data.get('directory_path')
-    write_exif = data.get('write_exif', True)
-    model_type = data.get('model_type', 'local')
+    model_type = data.get('model_type', 'gemini')
     api_key = data.get('api_key', '')
+    metadata_options = data.get('metadata_options', {'mode': 'xmp', 'handling': 'append'})
     
     # Update global config with user selection
     CONFIG['model_type'] = model_type
+    CONFIG['metadata_options'] = metadata_options
     if api_key:
         CONFIG['google_api_key'] = api_key
     
@@ -606,12 +678,113 @@ def start_processing():
     analyzer = ImageAnalyzer(session_id)
     processing_jobs[session_id] = analyzer
     
+    # Determine write metadata based on mode
+    write_metadata = metadata_options['mode'] != 'none'
+    
     # Start processing in background thread
-    thread = threading.Thread(target=analyzer.process_directory, args=(directory_path, write_exif))
+    thread = threading.Thread(target=analyzer.process_directory, args=(directory_path, write_metadata))
     thread.daemon = True
     thread.start()
     
     return jsonify({'success': True, 'session_id': session_id})
+
+@app.route('/api/start_multistage_processing', methods=['POST'])
+def start_multistage_processing():
+    """Start multi-stage pipeline processing with IQA curation"""
+    if not MULTISTAGE_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Multi-stage pipeline not available. Please check dependencies.'})
+        
+    data = request.get_json()
+    directory_path = data.get('directory_path')
+    model_type = data.get('model_type', 'gemini')
+    api_key = data.get('api_key', '')
+    quality_threshold = data.get('quality_threshold', 0.10)
+    iqa_model = data.get('iqa_model', 'brisque')
+    use_exif = data.get('use_exif', False)
+    
+    if not directory_path or not os.path.exists(directory_path):
+        return jsonify({'success': False, 'error': 'Invalid directory path'})
+    
+    session_id = session.get('session_id', str(uuid.uuid4()))
+    session['session_id'] = session_id
+    
+    # Prepare configuration for multi-stage pipeline
+    pipeline_config = {
+        'model_type': model_type,
+        'google_api_key': api_key,
+        'gemini_model': CONFIG.get('gemini_model', 'gemini-2.0-flash-exp'),
+        'ollama_url': CONFIG.get('ollama_url'),
+        'model': CONFIG.get('model', 'llava:13b'),
+        'enable_gallery_critique': CONFIG.get('enable_gallery_critique', False),
+        'prompt_profile': CONFIG.get('prompt_profile', 'professional_art_critic'),
+        'quality_threshold': quality_threshold,
+        'iqa_model': iqa_model,
+        'use_exif': use_exif
+    }
+    
+    def run_multistage_pipeline():
+        """Run the multi-stage processing pipeline in background"""
+        try:
+            # Create status queue for WebSocket updates
+            import queue
+            status_queue = queue.Queue()
+            
+            # Create and run pipeline
+            pipeline = MultiStageProcessingPipeline(pipeline_config)
+            
+            # Process directory with status updates
+            def emit_status_updates():
+                while True:
+                    try:
+                        message = status_queue.get(timeout=1)
+                        if message == "DONE":
+                            break
+                        socketio.emit('progress_update', {
+                            'status': message,
+                            'session_id': session_id
+                        })
+                    except:
+                        continue
+            
+            # Start status update thread
+            status_thread = threading.Thread(target=emit_status_updates, daemon=True)
+            status_thread.start()
+            
+            # Run the pipeline
+            results = pipeline.process_directory(directory_path, status_queue)
+            status_queue.put("DONE")
+            
+            # Store results for session
+            processing_jobs[session_id] = type('Results', (), {
+                'results': results.get('results', []),
+                'is_running': False,
+                'processed_count': results.get('images_analyzed', 0),
+                'total_images': results.get('total_images_found', 0)
+            })()
+            
+            # Emit completion
+            socketio.emit('processing_complete', {
+                'session_id': session_id,
+                'results': results,
+                'message': f"Multi-stage pipeline complete! Processed {results.get('images_analyzed', 0)} images."
+            })
+            
+        except Exception as e:
+            print(f"Multi-stage pipeline error: {e}")
+            socketio.emit('processing_error', {
+                'session_id': session_id,
+                'error': str(e)
+            })
+    
+    # Start processing in background thread
+    thread = threading.Thread(target=run_multistage_pipeline, daemon=True)
+    thread.start()
+    
+    return jsonify({
+        'success': True, 
+        'session_id': session_id,
+        'message': 'Multi-stage processing started with IQA curation'
+    })
 
 @app.route('/api/stop_processing', methods=['POST'])
 def stop_processing():
@@ -694,6 +867,38 @@ def set_prompt_profile():
     else:
         return jsonify({'success': False, 'error': 'Invalid profile key'})
 
+@app.route('/api/pipeline_config')
+def get_pipeline_config():
+    """Get pipeline configuration options"""
+    return jsonify({
+        'iqa_models': ['brisque', 'niqe', 'musiq', 'topiq'],
+        'current_iqa_model': CONFIG.get('iqa_model', 'brisque'),
+        'quality_threshold': CONFIG.get('quality_threshold', 0.10),
+        'use_multistage': CONFIG.get('use_multistage_pipeline', False),
+        'supported_thresholds': [0.05, 0.10, 0.15, 0.20, 0.25, 0.50]
+    })
+
+@app.route('/api/set_pipeline_config', methods=['POST'])
+def set_pipeline_config():
+    """Update pipeline configuration"""
+    data = request.get_json()
+    
+    if 'iqa_model' in data:
+        CONFIG['iqa_model'] = data['iqa_model']
+    if 'quality_threshold' in data:
+        CONFIG['quality_threshold'] = float(data['quality_threshold'])
+    if 'use_multistage' in data:
+        CONFIG['use_multistage_pipeline'] = bool(data['use_multistage'])
+    
+    return jsonify({
+        'success': True,
+        'config': {
+            'iqa_model': CONFIG.get('iqa_model'),
+            'quality_threshold': CONFIG.get('quality_threshold'),
+            'use_multistage': CONFIG.get('use_multistage_pipeline')
+        }
+    })
+
 @app.route('/api/export_results/<format>')
 def export_results(format):
     """Export processing results"""
@@ -738,16 +943,22 @@ def export_results(format):
 
 @socketio.on('connect')
 def handle_connect():
+    from flask_socketio import join_room
     session_id = session.get('session_id', str(uuid.uuid4()))
     session['session_id'] = session_id
     active_sessions.add(session_id)
+    join_room(session_id)
+    print(f"🔌 Client connected to session: {session_id}")
     emit('connected', {'session_id': session_id})
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    from flask_socketio import leave_room
     session_id = session.get('session_id')
     if session_id:
         active_sessions.discard(session_id)
+        leave_room(session_id)
+        print(f"🔌 Client disconnected from session: {session_id}")
 
 if __name__ == '__main__':
     # Create templates directory

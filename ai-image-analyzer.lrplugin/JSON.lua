@@ -3,6 +3,11 @@
 
 local JSON = {}
 
+-- Forward declarations
+local decode_scanValue
+local decode_scanObject
+local decode_scanArray
+
 local function decode_scanWhitespace(s, startPos)
     local whitespace = " \t\r\n"
     local stringLen = string.len(s)
@@ -54,7 +59,7 @@ local function decode_scanConstant(s, startPos)
     assert(nil, "Failed to scan constant from string " .. s .. " at " .. startPos)
 end
 
-local function decode_scanValue(s, startPos)
+decode_scanValue = function(s, startPos)
     startPos = decode_scanWhitespace(s, startPos)
     local curChar = string.sub(s, startPos, startPos)
     
@@ -73,7 +78,7 @@ local function decode_scanValue(s, startPos)
     end
 end
 
-local function decode_scanObject(s, startPos)
+decode_scanObject = function(s, startPos)
     local object = {}
     assert(string.sub(s, startPos, startPos) == '{', "decode_scanObject must start with '{'")
     startPos = startPos + 1
@@ -108,7 +113,7 @@ local function decode_scanObject(s, startPos)
     end
 end
 
-local function decode_scanArray(s, startPos)
+decode_scanArray = function(s, startPos)
     local array = {}
     assert(string.sub(s, startPos, startPos) == '[', "decode_scanArray must start with '['")
     startPos = startPos + 1

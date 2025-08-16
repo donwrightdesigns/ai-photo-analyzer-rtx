@@ -22,6 +22,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const apiKeyInput = document.getElementById('api-key');
     const toggleApiKeyBtn = document.getElementById('toggle-api-key');
     const downloadModelBtn = document.getElementById('download-model-btn');
+    
+    // Metadata options elements
+    const metadataModeRadios = document.querySelectorAll('input[name="metadata-mode"]');
+    const webOptimizationOptions = document.getElementById('web-optimization-options');
+    const metadataHandlingRadios = document.querySelectorAll('input[name="metadata-handling"]');
 
     // Load prompt profiles
     fetch('/api/prompt_profiles')
@@ -183,17 +188,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Start analysis
     startButton.addEventListener('click', () => {
         const directoryPath = directoryPathInput.value.trim();
-        const writeExif = document.getElementById('write-exif').checked;
         const selectedModel = document.querySelector('input[name="model-type"]:checked');
         const modelType = selectedModel ? selectedModel.value : 'gemini';
         const apiKey = apiKeyInput.value;
+        const metadataOptions = getMetadataOptions();
 
         fetch('/api/start_processing', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ directory_path: directoryPath, write_exif: writeExif, model_type: modelType, api_key: apiKey })
+            body: JSON.stringify({ 
+                directory_path: directoryPath, 
+                model_type: modelType, 
+                api_key: apiKey,
+                metadata_options: metadataOptions
+            })
         })
         .then(response => response.json())
         .then(data => {
@@ -229,32 +239,107 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Socket event listeners
     socket.on('progress_update', data => {
-        progressBar.style.width = (data.processed / data.total * 100) + '%';
-        progressInfoDiv.textContent = `${data.processed} of ${data.total} images processed.`;
-        currentImage.textContent = data.current_image;
+        console.log('📈 Progress update received:', data);
+        if (data.total && data.processed !== undefined) {
+            const percentage = Math.round((data.processed / data.total) * 100);
+            progressBar.style.width = percentage + '%';
+            progressInfoDiv.textContent = `${data.processed} of ${data.total} images processed (${percentage}%)`;
+        }
+        if (data.current_image) {
+            currentImage.textContent = data.current_image;
+        }
+        if (data.status) {
+            progressInfoDiv.innerHTML = `<p class="mb-0">${data.status}</p>`;
+        }
     });
 
     socket.on('image_processed', data => {
-        const clone = resultTemplate.content.cloneNode(true);
-        clone.querySelector('.image-preview small').textContent = data.result.image_name;
-        clone.querySelector('.category-badge').textContent = data.result.analysis.category;
-        clone.querySelector('.subcategory-badge').textContent = data.result.analysis.subcategory;
-        clone.querySelector('.stars').textContent = `${data.result.analysis.score} Stars`;
-        clone.querySelector('.tags-container').textContent = data.result.analysis.tags.join(', ');
-        clone.querySelector('.critique').textContent = data.result.analysis.critique;
-        resultsContainer.appendChild(clone);
+        console.log('🖼️ Image processed received:', data);
+        try {
+            const clone = resultTemplate.content.cloneNode(true);
+            clone.querySelector('.image-preview small').textContent = data.result.image_name;
+            clone.querySelector('.category-badge').textContent = data.result.analysis.category;
+            clone.querySelector('.subcategory-badge').textContent = data.result.analysis.subcategory;
+            clone.querySelector('.stars').textContent = `${data.result.analysis.score}/10`;
+            clone.querySelector('.tags-container').textContent = data.result.analysis.tags.join(', ');
+            if (data.result.analysis.critique) {
+                clone.querySelector('.critique').textContent = data.result.analysis.critique;
+            }
+            resultsContainer.appendChild(clone);
+            console.log('✅ Result added to DOM');
+        } catch (error) {
+            console.error('❌ Error processing result:', error, data);
+        }
     });
 
     socket.on('processing_complete', data => {
+        console.log('✅ Processing complete received:', data);
         stopButton.disabled = true;
         startButton.disabled = false;
+        progressBar.style.width = '100%';
         progressInfoDiv.innerHTML = `<p class="mb-0 text-success"><i class="fas fa-check-circle me-2"></i>Processing complete! ${data.total_processed} images analyzed.</p>`;
     });
+    
+    // Add connection debugging
+    socket.on('connect', () => {
+        console.log('🔌 Socket connected');
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('🔌 Socket disconnected');
+    });
+    
+    socket.on('connected', (data) => {
+        console.log('✅ Session connected:', data.session_id);
+    });
 
+    // Handle metadata mode changes
+    metadataModeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            handleMetadataModeChange(radio.value);
+        });
+    });
+    
+    function handleMetadataModeChange(mode) {
+        // Show web optimization options for EXIF or Both modes
+        if (mode === 'exif' || mode === 'both') {
+            webOptimizationOptions.style.display = 'block';
+        } else {
+            webOptimizationOptions.style.display = 'none';
+        }
+    }
+    
+    function getMetadataOptions() {
+        const selectedMode = document.querySelector('input[name="metadata-mode"]:checked');
+        const selectedHandling = document.querySelector('input[name="metadata-handling"]:checked');
+        
+        const options = {
+            mode: selectedMode ? selectedMode.value : 'xmp',
+            handling: selectedHandling ? selectedHandling.value : 'append'
+        };
+        
+        // Add web optimization options if relevant
+        if (options.mode === 'exif' || options.mode === 'both') {
+            options.webOptimization = {
+                mapAltText: document.getElementById('map-alt-text').checked,
+                mapKeywords: document.getElementById('map-keywords').checked,
+                mapCaption: document.getElementById('map-caption').checked
+            };
+        }
+        
+        return options;
+    }
+    
     // Initialize model type display
     const defaultModel = document.querySelector('input[name="model-type"]:checked');
     if (defaultModel) {
         handleModelTypeChange(defaultModel.value);
+    }
+    
+    // Initialize metadata mode display
+    const defaultMetadataMode = document.querySelector('input[name="metadata-mode"]:checked');
+    if (defaultMetadataMode) {
+        handleMetadataModeChange(defaultMetadataMode.value);
     }
     
     // Initial form validation

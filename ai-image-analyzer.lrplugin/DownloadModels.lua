@@ -146,7 +146,8 @@ LrFunctionContext.callWithContext("downloadModels", function(context)
         viewFactory:row {
             viewFactory:radio_button {
                 title = AVAILABLE_MODELS[1].title,
-                value = LrBinding.bind("selectedModel"),
+                bind_to_object = properties,
+                value = "selectedModel",
                 checked_value = AVAILABLE_MODELS[1].name,
             },
         },
@@ -160,7 +161,8 @@ LrFunctionContext.callWithContext("downloadModels", function(context)
         viewFactory:row {
             viewFactory:radio_button {
                 title = AVAILABLE_MODELS[2].title,
-                value = LrBinding.bind("selectedModel"),
+                bind_to_object = properties,
+                value = "selectedModel",
                 checked_value = AVAILABLE_MODELS[2].name,
             },
         },
@@ -174,7 +176,8 @@ LrFunctionContext.callWithContext("downloadModels", function(context)
         viewFactory:row {
             viewFactory:radio_button {
                 title = AVAILABLE_MODELS[3].title,
-                value = LrBinding.bind("selectedModel"),
+                bind_to_object = properties,
+                value = "selectedModel",
                 checked_value = AVAILABLE_MODELS[3].name,
             },
         },

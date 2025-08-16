@@ -1,4 +1,5 @@
 local LrBinding = import 'LrBinding'
+local LrColor = import 'LrColor'
 local LrDialogs = import 'LrDialogs'
 local LrFunctionContext = import 'LrFunctionContext'
 local LrPrefs = import 'LrPrefs'
@@ -49,7 +50,8 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
                 width = 120,
             },
             viewFactory:popup_menu {
-                value = LrBinding.bind("modelType"),
+                bind_to_object = properties,
+                value = "modelType",
                 items = {
                     { title = "Local (LLaVA via Ollama)", value = "local" },
                     { title = "Cloud (Google Gemini)", value = "cloud" },
@@ -64,10 +66,39 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
                 width = 120,
             },
             viewFactory:edit_field {
-                value = LrBinding.bind("apiKey"),
+                bind_to_object = properties,
+                value = "apiKey",
                 password = true,
                 width_in_chars = 40,
                 enabled = LrBinding.keyEquals("modelType", "cloud", properties) or LrBinding.keyEquals("modelType", "auto", properties),
+                tooltip = "Required only for Cloud and Auto modes. Leave empty for Local mode.",
+            },
+        },
+        
+        viewFactory:row {
+            viewFactory:static_text {
+                title = "",
+                width = 120,
+            },
+            viewFactory:static_text {
+                title = "💡 API Key is only required for Cloud/Auto modes. Local models don't need an API key.",
+                width_in_chars = 60,
+                height_in_lines = 2,
+                text_color = LrColor('gray'),
+                visible = LrBinding.keyEquals("modelType", "local", properties),
+            },
+        },
+        
+        viewFactory:row {
+            viewFactory:static_text {
+                title = "",
+                width = 120,
+            },
+            viewFactory:static_text {
+                title = "🔑 Get your free Google AI API key at: https://aistudio.google.com/",
+                width_in_chars = 60,
+                text_color = LrColor('blue'),
+                visible = LrBinding.keyEquals("modelType", "cloud", properties) or LrBinding.keyEquals("modelType", "auto", properties),
             },
         },
         
@@ -87,7 +118,8 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
                 width = 120,
             },
             viewFactory:edit_field {
-                value = LrBinding.bind("apiUrl"),
+                bind_to_object = properties,
+                value = "apiUrl",
                 width_in_chars = 40,
             },
         },
@@ -98,7 +130,8 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
                 width = 120,
             },
             viewFactory:edit_field {
-                value = LrBinding.bind("timeout"),
+                bind_to_object = properties,
+                value = "timeout",
                 width_in_chars = 10,
             },
         },
@@ -119,7 +152,8 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
                 width = 120,
             },
             viewFactory:edit_field {
-                value = LrBinding.bind("maxWorkers"),
+                bind_to_object = properties,
+                value = "maxWorkers",
                 width_in_chars = 10,
             },
         },
@@ -127,14 +161,16 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
         viewFactory:row {
             viewFactory:checkbox {
                 title = "Optimize images for faster processing",
-                value = LrBinding.bind("optimizeImages"),
+                bind_to_object = properties,
+                value = "optimizeImages",
             },
         },
         
         viewFactory:row {
             viewFactory:checkbox {
                 title = "Enable Lightroom resource monitoring",
-                value = LrBinding.bind("lightRoomIntegration"),
+                bind_to_object = properties,
+                value = "lightRoomIntegration",
             },
         },
         
@@ -151,14 +187,16 @@ LrFunctionContext.callWithContext("AI Image Analyzer v2.0 Settings", function(co
         viewFactory:row {
             viewFactory:checkbox {
                 title = "Write analysis to EXIF metadata",
-                value = LrBinding.bind("writeExif"),
+                bind_to_object = properties,
+                value = "writeExif",
             },
         },
         
         viewFactory:row {
             viewFactory:checkbox {
                 title = "Enable detailed logging",
-                value = LrBinding.bind("enableLogging"),
+                bind_to_object = properties,
+                value = "enableLogging",
             },
         },
         

@@ -29,6 +29,10 @@ local function getPreferences()
         enableGalleryCritique = prefs.enableGalleryCritique or false,
         generateXmp = prefs.generateXmp or true,
         critiqueThreshold = prefs.critiqueThreshold or 5,
+        -- Multi-stage pipeline preferences
+        qualityThreshold = prefs.qualityThreshold or 0.10,
+        iqaModel = prefs.iqaModel or "brisque",
+        useExif = prefs.useExif or false,
     }
 end
 

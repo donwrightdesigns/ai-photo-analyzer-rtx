@@ -3,11 +3,15 @@ return {
 	LrSdkMinimumVersion = 6.0,
 	
 	LrToolkitIdentifier = 'com.aiimageanalyzer.v2.lrplugin',
-	LrPluginName = "AI Image Analyzer v2.0",
+	LrPluginName = "AI Image Analyzer v2.1 - Multi-Stage Pipeline",
 	
 	LrPluginInfoUrl = "https://github.com/your-repo/ai-image-analyzer",
 	
 	LrLibraryMenuItems = {
+		{
+			title = "🚀 Multi-Stage Analysis (IQA + AI)", -- NEW: Advanced pipeline
+			file = "MultiStageAnalysis.lua",
+		},
 		{
 			title = "Analyze Selected Images",
 			file = "AnalyzeImages.lua",
@@ -25,11 +29,11 @@ return {
 			file = "ExportReport.lua",
 		},
 		{
-			title = "Download Local Models", -- NEW FEATURE
+			title = "Download Local Models",
 			file = "DownloadModels.lua",
 		},
 		{
-			title = "System Status", -- NEW FEATURE  
+			title = "System Status",
 			file = "SystemStatus.lua",
 		},
 		{

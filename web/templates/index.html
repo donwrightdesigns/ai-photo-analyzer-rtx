@@ -126,14 +126,73 @@
                             </div>
                         </div>
 
-                        <!-- Options -->
+                        <!-- Metadata Options -->
                         <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="write-exif" checked>
-                            <label class="form-check-label" for="write-exif">
-                                Write analysis to XMP sidecar files
-                            </label>
+                            <h6>Metadata Storage</h6>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="metadata-xmp" name="metadata-mode" value="xmp" checked>
+                                <label class="form-check-label ms-2" for="metadata-xmp">
+                                    <i class="fas fa-file-code me-1"></i>XMP Sidecar Only (Lightroom/Professional)
+                                </label>
+                            </div>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="metadata-exif" name="metadata-mode" value="exif">
+                                <label class="form-check-label ms-2" for="metadata-exif">
+                                    <i class="fas fa-camera me-1"></i>EXIF Embedded Only (Web/SEO)
+                                </label>
+                            </div>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="metadata-both" name="metadata-mode" value="both">
+                                <label class="form-check-label ms-2" for="metadata-both">
+                                    <i class="fas fa-copy me-1"></i>Both XMP + EXIF (Maximum Compatibility)
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                XMP: Non-destructive, Lightroom compatible | EXIF: Embedded, web gallery compatible
+                            </small>
                         </div>
+
+                        <!-- Web Optimization Options -->
+                        <div class="mb-3" id="web-optimization-options" style="display: none;">
+                            <h6>Web & SEO Optimization</h6>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="map-alt-text" checked>
+                                <label class="form-check-label" for="map-alt-text">
+                                    Map AI description to Alt Text (ImageDescription)
+                                </label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="map-keywords" checked>
+                                <label class="form-check-label" for="map-keywords">
+                                    Map AI tags to Keywords (XPKeywords)
+                                </label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="map-caption" checked>
+                                <label class="form-check-label" for="map-caption">
+                                    Map AI critique to Caption (UserComment)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Metadata Handling Options -->
+                        <div class="mb-3">
+                            <h6>Existing Metadata</h6>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="metadata-append" name="metadata-handling" value="append" checked>
+                                <label class="form-check-label ms-2" for="metadata-append">
+                                    <i class="fas fa-plus me-1"></i>Append to existing metadata
+                                </label>
+                            </div>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="metadata-replace" name="metadata-handling" value="replace">
+                                <label class="form-check-label ms-2" for="metadata-replace">
+                                    <i class="fas fa-sync-alt me-1"></i>Replace existing metadata
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                Append preserves your existing tags and descriptions
+                            </small>
                         </div>
 
                         <!-- Action Buttons -->
