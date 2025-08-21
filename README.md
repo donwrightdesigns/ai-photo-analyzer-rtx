@@ -1,5 +1,5 @@
 # AI Photo Analyzer and XMP culling with HTML GUI and Adobe LIGHTROOM plugin 
-![AI-Image Rating, Tagging, Sorting Describing RTX Optimized](http://www.donwrightdesigns.com/wp-content/uploads/2025/07/header-logo.jpg)
+![AI-Image Rating, Tagging, Sorting Describing RTX Optimized](http://www.donwrightdesigns.com/wp-content/uploads/2025/06/header-logo.jpg)
 
 A comprehensive image analysis system using AI models to automatically tag, categorize, assess and critique photographs helping organize, enormous libraries, or portfolios. This project includes standalone scripts, a web GUI, and a Lightroom plugin.
 
@@ -171,5 +171,6 @@ Don Wright - Created with AI assistance
 - Lightroom plugin integration
 - EXIF metadata writing
 - Batch processing capabilities
+
 
 
