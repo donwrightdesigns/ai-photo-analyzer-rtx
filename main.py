@@ -108,10 +108,10 @@ def run_batch_mode(images, processing_mode='archive', config_path=None):
 
 def run_gui_mode(initial_images=None, processing_mode=None):
     """Launch GUI with optional preloaded images"""
-    from ai_image_analyzer_gui_v2 import AIImageAnalyzerGUI
+    from ai_image_analyzer_gui_v2 import MainWindow
     
     # Create and run GUI
-    app = AIImageAnalyzerGUI()
+    app = MainWindow()
     
     # If images provided, preload them
     if initial_images:

@@ -57,8 +57,8 @@ If you prefer to run the desktop app from source:
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-username/ai-image-analyzer.git
-    cd ai-image-analyzer
+    git clone https://github.com/donwrightdesigns/ai-photo-analyzer-rtx.git
+    cd ai-photo-analyzer-rtx
     ```
 
 2.  **Install dependencies**:

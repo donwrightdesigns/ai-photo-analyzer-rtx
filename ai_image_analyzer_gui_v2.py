@@ -38,6 +38,7 @@ class ConfigManager:
             "iqa_model": "brisque",
             "use_exif": False,
             "generate_curator": False,
+            "persona_profile": "professional_art_critic",
             "enable_rtx": True,
             "rtx_gpu_layers": 35,
             "rtx_batch_size": "512",
@@ -161,7 +162,7 @@ class StatusDisplay:
             
         model_text = f"Model: {config.get('model_type', 'Unknown').upper()}"
         
-        gpu_enabled = config.get('enable_rtx', False) and config.get('model_type') in ['bakllava', 'ollama', 'gemma3']
+        gpu_enabled = config.get('enable_rtx', False) and config.get('model_type') in ['bakllava', 'llava_standalone', 'llava_13b']
         gpu_text = f"GPU: {'RTX Enabled' if gpu_enabled else 'CPU Only'}"
         
         quality_text = f"Quality: {config.get('quality_threshold', 0.1)*100:.0f}%"
@@ -195,15 +196,11 @@ class SettingsDialog:
         self.iqa_model_var = tk.StringVar(value=self.config.get("iqa_model", "brisque"))
         self.use_exif_var = tk.BooleanVar(value=self.config.get("use_exif", False))
         self.generate_curator_var = tk.BooleanVar(value=self.config.get("generate_curator", False))
+        self.persona_profile_var = tk.StringVar(value=self.config.get("persona_profile", "professional_art_critic"))
         self.enable_rtx_var = tk.BooleanVar(value=self.config.get("enable_rtx", True))
         self.rtx_gpu_layers_var = tk.IntVar(value=self.config.get("rtx_gpu_layers", 35))
         self.rtx_batch_size_var = tk.StringVar(value=self.config.get("rtx_batch_size", "512"))
         self.rtx_max_vram_var = tk.DoubleVar(value=self.config.get("rtx_max_vram", 8.0))
-        
-        # Load environment API key if available
-        env_key = os.environ.get('GOOGLE_API_KEY', '')
-        if env_key and not self.api_key_var.get():
-            self.api_key_var.set(env_key)
     
     def show_dialog(self):
         """Show the settings dialog"""
@@ -267,21 +264,20 @@ class SettingsDialog:
         model_frame = ttk.LabelFrame(scrollable_frame, text="AI Model Selection", padding="10")
         model_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Radiobutton(model_frame, text="🌐 Google Gemini (Cloud-based, Fast)", 
+        ttk.Radiobutton(model_frame, text="🖥️ LLaVA 13B (Local, GPU-Optimized, Recommended)", 
+                       variable=self.model_type_var, value="llava_13b",
+                       command=self.on_model_change).pack(anchor=tk.W, pady=5)
+        
+        ttk.Radiobutton(model_frame, text="🌐 Google Gemini (Cloud-based, Fast Fallback)", 
                        variable=self.model_type_var, value="gemini",
-                       command=self.on_model_change).pack(anchor=tk.W, pady=2)
+                       command=self.on_model_change).pack(anchor=tk.W, pady=5)
         
-        ttk.Radiobutton(model_frame, text="🖥️ Ollama LLaVA 13B (Local, Reliable)", 
-                       variable=self.model_type_var, value="ollama",
-                       command=self.on_model_change).pack(anchor=tk.W, pady=2)
+        # Model info
+        info_frame = ttk.Frame(model_frame)
+        info_frame.pack(fill=tk.X, pady=(10, 0))
         
-        ttk.Radiobutton(model_frame, text="🔥 Gemma3 27B (Local, Multimodal, Large)", 
-                       variable=self.model_type_var, value="gemma3",
-                       command=self.on_model_change).pack(anchor=tk.W, pady=2)
-        
-        ttk.Radiobutton(model_frame, text="🚀 BakLLaVA (Local, GPU-optimized)", 
-                       variable=self.model_type_var, value="bakllava",
-                       command=self.on_model_change).pack(anchor=tk.W, pady=2)
+        ttk.Label(info_frame, text="💡 LLaVA 13B is recommended for best performance and privacy. Gemini provides cloud backup.",
+                 font=('Arial', 9), foreground='blue').pack(anchor=tk.W)
         
         # Download Models Section
         download_frame = ttk.Frame(model_frame)
@@ -399,6 +395,42 @@ class SettingsDialog:
         ttk.Label(processing_frame, text="   ↳ Adds detailed artistic analysis and critique", 
                  font=('Arial', 9), foreground='gray').pack(anchor=tk.W)
         
+        # 6. Analysis Persona Selection
+        persona_frame = ttk.LabelFrame(scrollable_frame, text="🎭 Analysis Persona", padding="10")
+        persona_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        persona_selection_frame = ttk.Frame(persona_frame)
+        persona_selection_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(persona_selection_frame, text="Evaluation Perspective:").pack(side=tk.LEFT)
+        
+        # Define persona options with display names
+        persona_options = [
+            ("professional_art_critic", "🎨 Professional Art Critic"),
+            ("street_photographer", "📷 Street Photographer"),
+            ("commercial_photographer", "💼 Commercial Photographer"),
+            ("photojournalist", "📰 Photojournalist"),
+            ("social_media_influencer", "📱 Social Media Influencer")
+        ]
+        
+        persona_combo = ttk.Combobox(persona_selection_frame, textvariable=self.persona_profile_var,
+                                    values=[display for _, display in persona_options],
+                                    state='readonly', width=30)
+        persona_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Set current selection based on stored value
+        current_persona = self.config.get('persona_profile', 'professional_art_critic')
+        for key, display in persona_options:
+            if key == current_persona:
+                persona_combo.set(display)
+                break
+        
+        # Store mapping for later retrieval
+        self.persona_mapping = {display: key for key, display in persona_options}
+        
+        ttk.Label(persona_frame, text="🔍 Choose the evaluation perspective for image analysis and descriptions.", 
+                 font=('Arial', 9), foreground='blue').pack(anchor=tk.W, pady=(10, 0))
+        
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
@@ -417,7 +449,7 @@ class SettingsDialog:
     def on_model_change(self):
         """Handle model selection change"""
         model = self.model_type_var.get()
-        if model in ['bakllava', 'ollama', 'gemma3']:
+        if model in ['bakllava', 'llava_standalone', 'llava_13b']:
             self.gpu_frame.pack(fill=tk.X, pady=(0, 10))
         else:
             self.gpu_frame.pack_forget()
@@ -490,6 +522,10 @@ class SettingsDialog:
     
     def get_config(self):
         """Get current configuration from UI"""
+        # Convert persona display name back to key
+        persona_display = self.persona_profile_var.get()
+        persona_key = getattr(self, 'persona_mapping', {}).get(persona_display, 'professional_art_critic')
+        
         return {
             "model_type": self.model_type_var.get(),
             "google_api_key": self.api_key_var.get(),
@@ -497,6 +533,7 @@ class SettingsDialog:
             "iqa_model": self.iqa_model_var.get(),
             "use_exif": self.use_exif_var.get(),
             "generate_curator": self.generate_curator_var.get(),
+            "persona_profile": persona_key,
             "enable_rtx": self.enable_rtx_var.get(),
             "rtx_gpu_layers": self.rtx_gpu_layers_var.get(),
             "rtx_batch_size": self.rtx_batch_size_var.get(),
@@ -696,7 +733,7 @@ class MainWindow:
             'ollama_url': self.config.get('ollama_url'),
             'model': self.config.get('ollama_model'),
             'enable_gallery_critique': self.config.get('generate_curator'),
-            'prompt_profile': 'professional_art_critic',
+            'prompt_profile': self.config.get('persona_profile', 'professional_art_critic'),
             'quality_threshold': self.config.get('quality_threshold'),
             'iqa_model': self.config.get('iqa_model'),
             'use_exif': self.config.get('use_exif'),
@@ -713,7 +750,7 @@ class MainWindow:
         self.log(f"📊 Configuration: {self.config.get('iqa_model', 'unknown').upper()} IQA, top {self.config.get('quality_threshold', 0.1)*100:.0f}%")
         self.log(f"🤖 AI Model: {self.config.get('model_type', 'unknown').upper()}")
         
-        if self.config.get('enable_rtx') and self.config.get('model_type') in ['bakllava', 'ollama', 'gemma3']:
+        if self.config.get('enable_rtx') and self.config.get('model_type') in ['bakllava', 'ollama', 'gemma3', 'llava_13b']:
             self.log(f"🚀 GPU: RTX enabled ({self.config.get('rtx_gpu_layers')} layers, batch {self.config.get('rtx_batch_size')}, {self.config.get('rtx_max_vram'):.1f}GB)")
         
         self.log(f"📁 Search: {'Recursive' if self.recursive_var.get() else 'Current directory only'}")

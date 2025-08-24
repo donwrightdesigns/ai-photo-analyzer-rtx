@@ -24,7 +24,7 @@ import json
 import base64
 import requests
 from PIL import Image
-import google.genai as genai
+import google.generativeai as genai
 from google.generativeai import types
 import exiftool
 import time
@@ -238,49 +238,60 @@ class ContentGenerationEngine:
         """
         self.config = model_config
         self.gemini_model = None
-        self.bakllava_analyzer = None
+        self.llava_13b_model = None  # Local LLaVA 13B
         self.ollama_url = model_config.get('ollama_url', 'http://localhost:11434')
         self._init_models()
     
     def _init_models(self):
-        """Initialize AI models based on configuration."""
-        if self.config.get('model_type') == 'gemini' and self.config.get('google_api_key'):
+        """Initialize available models: LLaVA 13B and Gemini."""
+        self._init_gemini()  # Cloud fallback
+        self._init_llava_13b()  # Local LLaVA 13B
+
+    def _init_gemini(self):
+        """Initialize Gemini model as fallback option."""
+        if self.config.get('google_api_key'):
             try:
                 genai.configure(api_key=self.config['google_api_key'])
-                self.gemini_model = genai.GenerativeModel(self.config.get('gemini_model', 'gemini-2.0-flash-exp'))
-                print(" Gemini model initialized")
+                self.gemini_model = genai.GenerativeModel(self.config.get('gemini_model', 'gemini-pro-vision'))
+                print("✅ Gemini model initialized (fallback)")
             except Exception as e:
-                print(f" Failed to initialize Gemini model: {e}")
+                print(f"❌ Failed to initialize Gemini model: {e}")
 
-        # Initialize BakLLaVA model if selected
-        if self.config.get('model_type') == 'bakllava':
-            try:
-                # Import BakLLaVA analyzer
-                import sys
-                from pathlib import Path
-                scripts_dir = Path(__file__).parent / "scripts"
-                if str(scripts_dir) not in sys.path:
-                    sys.path.insert(0, str(scripts_dir))
-                
-                from bakllava_analyzer import BakLLaVAAnalyzer
-                
-                # Prepare GPU configuration for BakLLaVA
-                gpu_config = {
-                    'enable_rtx': self.config.get('enable_rtx_optimization', False),
-                    'rtx_gpu_layers': self.config.get('rtx_gpu_layers', 0),
-                    'rtx_batch_size': str(self.config.get('rtx_batch_size', 128))
-                }
-                
-                # Create analyzer with GPU config
-                self.bakllava_analyzer = BakLLaVAAnalyzer(gpu_config=gpu_config)
-                
-                if self.bakllava_analyzer.available:
-                    print(" BakLLaVA model initialized")
+    def _init_llava_13b(self):
+        """Initialize local LLaVA 13B model via Ollama."""
+        try:
+            # Test if LLaVA 13B is available locally
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                llava_models = [m for m in models if 'llava' in m['name'].lower() and '13b' in m['name']]
+                if llava_models:
+                    self.llava_13b_model = llava_models[0]['name']  # Use first available LLaVA 13B
+                    print(f"✅ LLaVA 13B model initialized: {self.llava_13b_model}")
                 else:
-                    print(" BakLLaVA not available, will use placeholder")
+                    print("❌ LLaVA 13B model not found locally")
+            else:
+                print("❌ Ollama service not available for local LLaVA 13B")
+        except Exception as e:
+            print(f"❌ Failed to initialize LLaVA 13B: {e}")
 
-            except Exception as e:
-                print(f" Failed to initialize BakLLaVA model: {e}")
+    def _init_gemma_12b(self):
+        """Initialize local Gemma 12B model via Ollama."""
+        try:
+            # Test if Gemma 12B is available locally
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                gemma_models = [m for m in models if 'gemma' in m['name'].lower() and ('12b' in m['name'] or '2b' in m['name'])]
+                if gemma_models:
+                    self.gemma_12b_model = gemma_models[0]['name']  # Use first available Gemma model
+                    print(f"✅ Gemma model initialized: {self.gemma_12b_model}")
+                else:
+                    print("❌ Gemma model not found locally")
+            else:
+                print("❌ Ollama service not available for local Gemma")
+        except Exception as e:
+            print(f"❌ Failed to initialize Gemma: {e}")
     
     def get_analysis_prompt(self, profile_key: str = 'professional_art_critic') -> str:
         """Generate analysis prompt based on selected profile."""
@@ -356,13 +367,33 @@ class ContentGenerationEngine:
         
         json_str = json.dumps(json_template, indent=2)
         
+        # Enhanced Photography-Specific Taxonomy (from BakLLaVA analyzer)
         DEFAULT_CATEGORIES = ["People", "Place", "Thing"]
-        DEFAULT_SUB_CATEGORIES = ["Candid", "Posed", "Automotive", "Real Estate", "Landscape", 
-                                 "Events", "Animal", "Product", "Food"]
-        DEFAULT_TAGS = ["Strobist", "Available Light", "Natural Light", "Beautiful", "Black & White", 
-                       "Timeless", "Low Quality", "Sentimental", "Action", "Minimalist", "Out of Focus", 
-                       "Other", "Evocative", "Disturbing", "Boring", "Wedding", "Bride", "Groom", 
-                       "Family", "Love", "Calm", "Busy"]
+        DEFAULT_SUB_CATEGORIES = ["Portrait", "Group-Shot", "Couple", "Family", "Children", "Baby", "Senior-Citizen", 
+                                 "Pet", "Wildlife", "Bird", "Automotive", "Architecture", "Interior", "Product", 
+                                 "Food", "Flowers", "Macro", "Landscape", "Urban", "Beach", "Forest", "Event"]
+        
+        # Photography-specific structured tags
+        SUBJECT_TAGS = ["Portrait", "Group-Shot", "Couple", "Family", "Children", "Baby", "Senior-Citizen", 
+                       "Pet", "Wildlife", "Bird", "Automotive", "Architecture", "Interior", "Product", 
+                       "Food", "Flowers", "Macro"]
+        
+        LIGHTING_TAGS = ["Golden-Hour", "Blue-Hour", "Overcast", "Direct-Sun", "Window-Light", 
+                        "Studio-Strobe", "Speedlight", "Natural-Light", "Low-Light", "Backlit", 
+                        "Side-Lit", "Dramatic-Lighting"]
+        
+        STYLE_TAGS = ["Black-White", "Color-Graded", "High-Contrast", "Soft-Focus", "Sharp-Detail", 
+                     "Shallow-DOF", "Wide-Angle", "Telephoto", "Candid", "Posed", "Action-Shot", "Still-Life"]
+        
+        EVENT_LOCATION_TAGS = ["Wedding", "Engagement", "Corporate", "Real-Estate", "Landscape", 
+                              "Urban", "Beach", "Forest", "Indoor", "Outdoor", "Studio", "Event", 
+                              "Concert", "Sports"]
+        
+        MOOD_TAGS = ["Bright-Cheerful", "Moody-Dark", "Romantic", "Professional", "Casual", 
+                    "Energetic", "Peaceful", "Dramatic"]
+        
+        # Combine all tags for selection
+        DEFAULT_TAGS = SUBJECT_TAGS + LIGHTING_TAGS + STYLE_TAGS + EVENT_LOCATION_TAGS + MOOD_TAGS
         
         prompt = f"""
         {profile['persona']}
@@ -388,13 +419,13 @@ class ContentGenerationEngine:
         
         return prompt
     
-    def _resize_image_for_analysis(self, image_path: str, max_size: int = 1200) -> Image.Image:
+    def _resize_image_for_analysis(self, image_path: str, max_size: int = 1024) -> Image.Image:
         """
         Resize image for AI analysis if it's too large.
         
         Args:
             image_path (str): Path to the image file
-            max_size (int): Maximum dimension (default 1200px for balanced speed and quality)
+            max_size (int): Maximum dimension (default 1024px for faster processing)
             
         Returns:
             PIL.Image: Resized image
@@ -457,8 +488,11 @@ class ContentGenerationEngine:
         
         return None
     
-    def analyze_image_with_ollama(self, image_path: str) -> Optional[Dict[str, Any]]:
-        """Analyze image using Ollama LLaVA model."""
+    def analyze_image_with_llava_13b(self, image_path: str) -> Optional[Dict[str, Any]]:
+        """Analyze image using local LLaVA 13B model."""
+        if not self.llava_13b_model:
+            return None
+            
         try:
             # Resize image for faster processing
             img = self._resize_image_for_analysis(image_path)
@@ -472,7 +506,7 @@ class ContentGenerationEngine:
             prompt = self.get_analysis_prompt()
             
             payload = {
-                "model": self.config.get('model', 'llava:13b'),
+                "model": self.llava_13b_model,
                 "prompt": prompt,
                 "images": [image_data],
                 "stream": False,
@@ -482,8 +516,8 @@ class ContentGenerationEngine:
                 }
             }
             
-            # Add GPU optimization if enabled
-            if self.config.get('enable_rtx_optimization', False) or self.config.get('enable_rtx', False):
+            # Add GPU optimization
+            if self.config.get('enable_rtx', False):
                 payload["options"].update({
                     "num_gpu": self.config.get('rtx_gpu_layers', 35),
                     "num_thread": 8,
@@ -501,16 +535,73 @@ class ContentGenerationEngine:
                 
                 try:
                     data = json.loads(response_text)
-                    # Return any successfully parsed data, even if partial
-                    if isinstance(data, dict):
+                    if isinstance(data, dict) and "category" in data:
                         return data
                 except json.JSONDecodeError:
                     pass
                     
         except Exception as e:
-            print(f"Error analyzing image with Ollama: {e}")
+            print(f"Error analyzing image with LLaVA 13B: {e}")
         
         return None
+    
+    def analyze_image_with_gemma_12b(self, image_path: str) -> Optional[Dict[str, Any]]:
+        """Analyze image using local Gemma 12B model."""
+        if not self.gemma_12b_model:
+            return None
+            
+        try:
+            # Resize image for faster processing
+            img = self._resize_image_for_analysis(image_path)
+            
+            # Convert resized image to base64
+            import io
+            img_buffer = io.BytesIO()
+            img.save(img_buffer, format='JPEG', quality=90)
+            image_data = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+            
+            prompt = self.get_analysis_prompt()
+            
+            payload = {
+                "model": self.gemma_12b_model,
+                "prompt": prompt,
+                "images": [image_data],
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "top_p": 0.8
+                }
+            }
+            
+            # Add GPU optimization
+            if self.config.get('enable_rtx', False):
+                payload["options"].update({
+                    "num_gpu": self.config.get('rtx_gpu_layers', 35),
+                    "num_thread": 8,
+                    "num_batch": int(self.config.get('rtx_batch_size', 512))
+                })
+            
+            response = requests.post(f"{self.ollama_url}/api/generate", json=payload, timeout=120)
+            
+            if response.status_code == 200:
+                result = response.json()
+                response_text = result.get('response', '').strip()
+                
+                # Clean up response
+                response_text = response_text.replace('```json', '').replace('```', '').strip()
+                
+                try:
+                    data = json.loads(response_text)
+                    if isinstance(data, dict) and "category" in data:
+                        return data
+                except json.JSONDecodeError:
+                    pass
+                    
+        except Exception as e:
+            print(f"Error analyzing image with Gemma 12B: {e}")
+        
+        return None
+    
     
     def analyze_image_with_bakllava(self, image_path: str) -> Optional[Dict[str, Any]]:
         """Analyze image using BakLLaVA model."""
@@ -560,78 +651,32 @@ class ContentGenerationEngine:
             print(f"Error analyzing image with BakLLaVA: {e}")
             return None
     
-    def analyze_image_with_gemma3(self, image_path: str) -> Optional[Dict[str, Any]]:
-        """Analyze image using Gemma3 model via Ollama."""
-        try:
-            # Resize image for faster processing
-            img = self._resize_image_for_analysis(image_path)
-            
-            # Convert resized image to base64
-            import io
-            img_buffer = io.BytesIO()
-            img.save(img_buffer, format='JPEG', quality=90)
-            image_data = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
-            
-            prompt = self.get_analysis_prompt()
-            
-            payload = {
-                "model": "gemma3:27b",  # Use the large Gemma3 model
-                "prompt": prompt,
-                "images": [image_data],
-                "stream": False,
-                "options": {
-                    "temperature": 0.3,
-                    "top_p": 0.8
-                }
-            }
-            
-            # Add GPU optimization if enabled
-            if self.config.get('enable_rtx_optimization', False) or self.config.get('enable_rtx', False):
-                payload["options"].update({
-                    "num_gpu": self.config.get('rtx_gpu_layers', 35),
-                    "num_thread": 8,
-                    "num_batch": int(self.config.get('rtx_batch_size', 512))
-                })
-            
-            response = requests.post(f"{self.ollama_url}/api/generate", json=payload, timeout=120)
-            
-            if response.status_code == 200:
-                result = response.json()
-                response_text = result.get('response', '').strip()
-                
-                # Clean up response
-                response_text = response_text.replace('```json', '').replace('```', '').strip()
-                
-                try:
-                    data = json.loads(response_text)
-                    if all(k in data for k in ["category", "subcategory", "tags", "score"]):
-                        return data
-                except json.JSONDecodeError:
-                    pass
-                    
-        except Exception as e:
-            print(f"Error analyzing image with Gemma3: {e}")
-        
-        return None
     
     def analyze_image(self, image_path: str) -> Optional[Dict[str, Any]]:
-        """Analyze image using the configured model."""
-        if self.config.get('model_type') == 'gemini':
-            return self.analyze_image_with_gemini(image_path)
-        elif self.config.get('model_type') == 'ollama':
-            return self.analyze_image_with_ollama(image_path)
-        elif self.config.get('model_type') == 'gemma3':
-            return self.analyze_image_with_gemma3(image_path)
-        elif self.config.get('model_type') == 'bakllava':
-            return self.analyze_image_with_bakllava(image_path)
-        else:
-            # Fallback placeholder
-            return {
-                "category": "Thing",
-                "subcategory": "Other",
-                "tags": ["AI", "Analyzed"],
-                "score": 6
-            }
+        """Analyze image using the best available model."""
+        
+        # Priority order: Local LLaVA 13B > Gemini (fallback)
+        if self.llava_13b_model:
+            print(f"🚀 Using LLaVA 13B: {self.llava_13b_model}")
+            result = self.analyze_image_with_llava_13b(image_path)
+            if result:
+                return result
+        
+        if self.gemini_model:
+            print("☁️ Using Gemini (fallback)")
+            result = self.analyze_image_with_gemini(image_path)
+            if result:
+                return result
+        
+        # Final fallback if all models fail
+        print("⚠️ All models failed, using placeholder")
+        return {
+            "category": "Thing",
+            "subcategory": "Other",
+            "tags": ["AI", "Analyzed"],
+            "score": 6,
+            "critique": "Analysis failed - using placeholder data"
+        }
 
 
 class MetadataPersistenceLayer:

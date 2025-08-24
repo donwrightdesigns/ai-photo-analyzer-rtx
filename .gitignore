@@ -142,3 +142,26 @@ secrets.json
 
 # Conda environments
 .conda/
+
+# Temporary files and testing
+temp_*.txt
+test_*.txt
+*.tmp
+
+# AI/ML model files
+*.bin
+*.onnx
+*.h5
+*.pb
+*.pth
+*.safetensors
+
+# Large data files
+data/
+datasets/
+*.csv
+*.jsonl
+
+# Windows specific
+ehthumbs.db
+Desktop.ini
