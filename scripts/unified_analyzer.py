@@ -58,7 +58,7 @@ class UnifiedConfig:
     critique_threshold: int = 5  # Only critique images scoring 5 or lower when disabled
     
     # Output settings
-    generate_xmp: bool = TRUE  # Generate XMP sidecar files instead of EXIF
+    generate_xmp: bool = True  # Generate XMP sidecar files instead of EXIF
     modify_exif: bool = False   # Modify EXIF data (when XMP is False)
     
     # Processing settings
@@ -566,7 +566,8 @@ class UnifiedAnalyzer:
                 # Post-process critique based on configuration
                 if not self.config.enable_gallery_critique and has_critique:
                     score = data.get('score', 0)
-                    if score > self.config.critique_threshold:
+                    critique_threshold = self.config.critique_threshold if self.config.critique_threshold is not None else 5
+                    if score > critique_threshold:
                         # Remove critique for high-scoring images when gallery critique is disabled
                         data.pop('critique', None)
                 
@@ -608,6 +609,8 @@ class MetadataWriter:
             
             # Calculate star rating
             score = analysis_data.get('score', 0)
+            if score is None:
+                score = 0
             star_rating = math.ceil(score / 2) if score >= 1 else 1
             
             # Check for existing high rating
@@ -653,6 +656,8 @@ class MetadataWriter:
             
             # Calculate star rating
             score = analysis_data.get('score', 0)
+            if score is None:
+                score = 0
             star_rating = math.ceil(score / 2) if score >= 1 else 1
             
             # Add GALLERY tag for 5-star ratings

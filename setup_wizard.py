@@ -25,16 +25,16 @@ class SetupWizard:
     
     def run_setup(self):
         """Run the complete setup wizard"""
-        print("🎯" + "="*60)
+        print("" + "="*60)
         print("   AI IMAGE ANALYZER - FIRST TIME SETUP")
         print("="*63)
         print()
         print("Welcome! Let's configure your AI Image Analyzer for optimal performance.")
         print("This wizard will help you set up:")
-        print("  📁 Model storage directories")
-        print("  🔑 API keys and tokens")
-        print("  📥 Automatic model downloads")
-        print("  ⚙️ Default processing preferences")
+        print("   Model storage directories")
+        print("   API keys and tokens")
+        print("   Automatic model downloads")
+        print("   Default processing preferences")
         print()
         
         # Step 1: Model Directory
@@ -52,13 +52,13 @@ class SetupWizard:
         # Step 5: Save Configuration
         self._save_configuration()
         
-        print("\n🎉 Setup Complete!")
-        print(f"📄 Configuration saved to: {self.config_file}")
+        print("\n Setup Complete!")
+        print(f" Configuration saved to: {self.config_file}")
         print("\nYou can now run the AI Image Analyzer with optimized settings!")
     
     def _setup_model_directory(self):
         """Configure model storage directory"""
-        print("\n📁 MODEL STORAGE DIRECTORY")
+        print("\n MODEL STORAGE DIRECTORY")
         print("-" * 30)
         
         # Auto-detect common model directories
@@ -73,7 +73,7 @@ class SetupWizard:
         existing_dirs = [d for d in common_dirs if d.exists()]
         
         if existing_dirs:
-            print("🔍 Found existing model directories:")
+            print(" Found existing model directories:")
             for i, dir_path in enumerate(existing_dirs, 1):
                 size = self._get_directory_size(dir_path)
                 print(f"  {i}. {dir_path} ({size})")
@@ -94,17 +94,17 @@ class SetupWizard:
                             self.config['model_directory'] = str(custom_dir)
                             break
                         else:
-                            print("❌ Directory doesn't exist!")
+                            print(" Directory doesn't exist!")
                     elif choice == len(existing_dirs) + 2:
                         new_path = input("Enter new directory path to create: ").strip().strip('"')
                         new_dir = Path(new_path)
                         try:
                             new_dir.mkdir(parents=True, exist_ok=True)
                             self.config['model_directory'] = str(new_dir)
-                            print(f"✅ Created: {new_dir}")
+                            print(f" Created: {new_dir}")
                             break
                         except Exception as e:
-                            print(f"❌ Failed to create directory: {e}")
+                            print(f" Failed to create directory: {e}")
                     else:
                         print("Invalid selection!")
                 except ValueError:
@@ -119,18 +119,18 @@ class SetupWizard:
                 try:
                     default_dir.mkdir(parents=True, exist_ok=True)
                     self.config['model_directory'] = str(default_dir)
-                    print(f"✅ Created: {default_dir}")
+                    print(f" Created: {default_dir}")
                 except Exception as e:
-                    print(f"❌ Failed to create directory: {e}")
+                    print(f" Failed to create directory: {e}")
             else:
                 custom_path = input("Enter custom model directory path: ").strip().strip('"')
                 self.config['model_directory'] = custom_path
         
-        print(f"📁 Model directory set to: {self.config['model_directory']}")
+        print(f" Model directory set to: {self.config['model_directory']}")
     
     def _setup_api_credentials(self):
         """Configure API keys and tokens"""
-        print("\n🔑 API CREDENTIALS")
+        print("\n API CREDENTIALS")
         print("-" * 20)
         
         # Google Gemini API Key
@@ -167,11 +167,11 @@ class SetupWizard:
     
     def _setup_model_downloads(self):
         """Configure automatic model downloads"""
-        print("\n📥 MODEL DOWNLOADS")
+        print("\n MODEL DOWNLOADS")
         print("-" * 20)
         
         if self.config.get('hf_token', 'none') == 'none':
-            print("⚠️  No Hugging Face token configured - skipping automatic downloads")
+            print("  No Hugging Face token configured - skipping automatic downloads")
             self.config['auto_download_models'] = False
             return
         
@@ -219,7 +219,7 @@ class SetupWizard:
     
     def _setup_default_preferences(self):
         """Configure default processing preferences"""
-        print("\n⚙️  DEFAULT PREFERENCES")
+        print("\n  DEFAULT PREFERENCES")
         print("-" * 25)
         
         # Default processing goal
@@ -283,9 +283,9 @@ class SetupWizard:
         try:
             with open(self.config_file, 'w') as f:
                 json.dump(self.config, f, indent=2)
-            print(f"\n✅ Configuration saved to: {self.config_file}")
+            print(f"\n Configuration saved to: {self.config_file}")
         except Exception as e:
-            print(f"❌ Failed to save configuration: {e}")
+            print(f" Failed to save configuration: {e}")
     
     def _get_directory_size(self, directory: Path) -> str:
         """Get human-readable directory size"""
@@ -321,7 +321,7 @@ class SetupWizard:
 def main():
     """Run the setup wizard"""
     if SetupWizard.has_been_configured():
-        print("🔧 Configuration already exists!")
+        print(" Configuration already exists!")
         reconfigure = input("Run setup wizard again? (y/N): ").strip().lower()
         if reconfigure not in ['y', 'yes']:
             print("Setup cancelled.")

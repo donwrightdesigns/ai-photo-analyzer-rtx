@@ -16,6 +16,7 @@ import os
 import threading
 import queue
 import time
+import json
 from pathlib import Path
 from pipeline_core import MultiStageProcessingPipeline
 import google.genai as genai
@@ -41,12 +42,24 @@ class ImageAnalyzerApp:
         # Configuration variables
         self.use_exif_var = tk.BooleanVar(value=False)
         self.generate_curator_var = tk.BooleanVar(value=False)
+        self.recursive_var = tk.BooleanVar(value=True)  # Default to recursive
         self.model_type_var = tk.StringVar(value="gemini")
         self.api_key_var = tk.StringVar()
         self.quality_threshold_var = tk.DoubleVar(value=0.10)
         self.iqa_model_var = tk.StringVar(value="brisque")
         
+        # RTX GPU optimization variables
+        self.enable_rtx_var = tk.BooleanVar(value=True)
+        self.rtx_gpu_layers_var = tk.IntVar(value=35)
+        self.rtx_batch_size_var = tk.StringVar(value="512")
+        self.rtx_max_vram_var = tk.DoubleVar(value=8.0)
+        
+        # Processing mode variable
+        self.processing_mode_var = tk.StringVar(value="curated")
+        
         self.setup_ui()
+        # Load environment variables
+        self._load_environment_config()
         self.schedule_queue_check()
         
     def setup_ui(self):
@@ -76,8 +89,28 @@ class ImageAnalyzerApp:
         ttk.Button(dir_entry_frame, text="Browse...", command=self.select_directory).pack(side=tk.RIGHT, padx=(10, 0))
         self.directory.set("No directory selected")
         
-        # 2. Multi-Stage Pipeline Configuration
-        pipeline_frame = ttk.LabelFrame(main_frame, text="2. Pipeline Configuration", padding="10")
+        # 2. Processing Mode Selection
+        mode_frame = ttk.LabelFrame(main_frame, text="2. Processing Mode", padding="10")
+        mode_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Mode selection radio buttons
+        mode_radio_frame = ttk.Frame(mode_frame)
+        mode_radio_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Radiobutton(mode_radio_frame, text="📷 Curated Mode (Quality-based selection)", 
+                       variable=self.processing_mode_var, value="curated",
+                       command=self.on_mode_change).pack(anchor=tk.W, pady=2)
+        ttk.Label(mode_radio_frame, text="   ↳ Process top-quality images for portfolio/delivery (faster)", 
+                 font=('Arial', 9), foreground='gray').pack(anchor=tk.W, padx=(20, 0))
+        
+        ttk.Radiobutton(mode_radio_frame, text="🗂️ Archive Mode (All images)", 
+                       variable=self.processing_mode_var, value="archive",
+                       command=self.on_mode_change).pack(anchor=tk.W, pady=(10, 2))
+        ttk.Label(mode_radio_frame, text="   ↳ Tag and catalog ALL images for searchable archive", 
+                 font=('Arial', 9), foreground='gray').pack(anchor=tk.W, padx=(20, 0))
+        
+        # 3. Multi-Stage Pipeline Configuration
+        pipeline_frame = ttk.LabelFrame(main_frame, text="3. Pipeline Configuration", padding="10")
         pipeline_frame.pack(fill=tk.X, pady=(0, 10))
         
         # IQA Configuration
@@ -140,11 +173,16 @@ class ImageAnalyzerApp:
         ttk.Label(options_frame, text="   ↳ Requires API key, adds detailed artistic analysis", 
                  font=('Arial', 9), foreground='gray').pack(anchor=tk.W)
         
+        ttk.Checkbutton(options_frame, text="Include Subfolders (Recursive Search)", 
+                       variable=self.recursive_var).pack(anchor=tk.W, pady=(10, 2))
+        ttk.Label(options_frame, text="   ↳ Process images in subdirectories recursively", 
+                 font=('Arial', 9), foreground='gray').pack(anchor=tk.W)
+        
         # 5. Action Buttons
         action_frame = ttk.Frame(main_frame)
         action_frame.pack(fill=tk.X, pady=(10, 0))
         
-        self.start_button = ttk.Button(action_frame, text="🚀 Start Multi-Stage Analysis", 
+        self.start_button = ttk.Button(action_frame, text=" Start Multi-Stage Analysis", 
                                       command=self.start_analysis, style='Accent.TButton')
         self.start_button.pack(side=tk.LEFT, padx=(0, 10))
         
@@ -190,12 +228,42 @@ class ImageAnalyzerApp:
         # Configure custom accent button style
         style.configure('Accent.TButton', font=('Arial', 10, 'bold'))
         
+    def _load_environment_config(self):
+        """Load configuration from environment variables"""
+        # Load Google API key from environment if available
+        google_api_key = os.environ.get('GOOGLE_API_KEY', '')
+        if google_api_key:
+            self.api_key_var.set(google_api_key)
+            self.log("✅ Loaded Google API key from environment variable")
+    
+    def on_model_change(self):
+        """Handle model type change to show/hide RTX options"""
+        # This will be implemented when we add the RTX UI components
+        pass
+    
+    def on_rtx_toggle(self):
+        """Handle RTX enable/disable toggle"""
+        # This will be implemented when we add the RTX UI components
+        pass
+    
+    def on_gpu_layers_change(self, value):
+        """Update GPU layers label"""
+        # This will be implemented when we add the RTX UI components
+        pass
+    
+    def on_mode_change(self):
+        """Handle processing mode change"""
+        if self.processing_mode_var.get() == "archive":
+            self.log("🗂️ Archive Mode selected - will process ALL images")
+        else:
+            self.log("📷 Curated Mode selected - will process top quality images only")
+        
     def select_directory(self):
         """Open directory selection dialog"""
         directory = filedialog.askdirectory()
         if directory:
             self.directory.set(directory)
-            self.log(f"📁 Selected directory: {directory}")
+            self.log(f" Selected directory: {directory}")
             
     def log(self, message):
         """Add message to the status log"""
@@ -233,6 +301,9 @@ class ImageAnalyzerApp:
         self.progress_var.set(0)
         
         # Prepare pipeline configuration
+        import os
+        exiftool_path = os.path.join(os.path.dirname(__file__), 'exiftoolapp', 'exiftool.exe')
+        
         pipeline_config = {
             'model_type': self.model_type_var.get(),
             'google_api_key': self.api_key_var.get(),
@@ -243,22 +314,38 @@ class ImageAnalyzerApp:
             'prompt_profile': 'professional_art_critic',
             'quality_threshold': self.quality_threshold_var.get(),
             'iqa_model': self.iqa_model_var.get(),
-            'use_exif': self.use_exif_var.get()
+            'use_exif': self.use_exif_var.get(),
+            'recursive': self.recursive_var.get(),
+            'exiftool_path': exiftool_path if os.path.exists(exiftool_path) else None
         }
         
-        self.log("🚀 Starting Multi-Stage Processing Pipeline...")
-        self.log(f"📊 Configuration: {self.iqa_model_var.get().upper()} IQA, top {self.quality_threshold_var.get()*100:.0f}% quality threshold")
+        self.log(" Starting Multi-Stage Processing Pipeline...")
+        self.log(f" Configuration: {self.iqa_model_var.get().upper()} IQA, top {self.quality_threshold_var.get()*100:.0f}% quality threshold")
         self.log(f"🤖 AI Model: {self.model_type_var.get().upper()}")
-        self.log(f"💾 Metadata: {'EXIF embedded' if self.use_exif_var.get() else 'XMP sidecar files'}")
+        self.log(f" Metadata: {'EXIF embedded' if self.use_exif_var.get() else 'XMP sidecar files'}")
+        self.log(f" Search mode: {'Recursive (includes subfolders)' if self.recursive_var.get() else 'Current directory only'}")
         
         # Start processing in separate thread
         def run_pipeline():
             try:
                 pipeline = MultiStageProcessingPipeline(pipeline_config)
-                results = pipeline.process_directory(
-                    self.directory.get(),
-                    status_queue=self.status_queue
-                )
+                
+                # Choose processing mode
+                if self.processing_mode_var.get() == "archive":
+                    # Archive Mode: Process ALL images
+                    def status_callback(msg):
+                        self.status_queue.put(msg)
+                    
+                    results = pipeline.process_all_images_archive_mode(
+                        self.directory.get(),
+                        status_callback=status_callback
+                    )
+                else:
+                    # Curated Mode: Process top quality images only
+                    results = pipeline.process_directory(
+                        self.directory.get(),
+                        status_queue=self.status_queue
+                    )
                 
                 # Signal completion
                 self.status_queue.put("PIPELINE_COMPLETE")
@@ -299,7 +386,7 @@ class ImageAnalyzerApp:
                 elif message == "PIPELINE_ERROR":
                     self.handle_error()
                 elif isinstance(message, str) and message.startswith("ERROR:"):
-                    self.log(f"❌ {message}")
+                    self.log(f" {message}")
                 else:
                     # Regular status message
                     self.log(message)
@@ -314,18 +401,47 @@ class ImageAnalyzerApp:
         self.stop_button.config(state='disabled')
         self.progress_var.set(100)
         
-        # Display completion summary
+        # Handle both curated and archive mode results
+        mode = results.get('mode', 'curated')
         total_found = results.get('total_images_found', 0)
         analyzed = results.get('images_analyzed', 0)
         written = results.get('metadata_written', 0)
         processing_time = results.get('processing_time', 0)
-        iqa_model = results.get('iqa_model', 'unknown')
         ai_model = results.get('ai_model', 'unknown')
         
-        summary = f"""
-🎉 Multi-Stage Pipeline Complete!
+        if mode == 'archive_all_images':
+            # Archive mode summary
+            stats = results.get('archive_statistics', {})
+            avg_rating = stats.get('average_rating', 0)
+            five_star = stats.get('five_star_images', 0)
+            
+            summary = f"""
+🗂️ Archive Processing Complete!
 
-📊 Processing Summary:
+ Processing Summary:
+   • Total images found: {total_found}
+   • Images analyzed and tagged: {analyzed}
+   • Metadata files written: {written}
+   • Processing time: {processing_time:.1f} seconds
+   • Average rating: {avg_rating:.2f}/5 stars
+   • Gallery-worthy (5⭐): {five_star} images
+   • AI analysis model: {ai_model.upper()}
+
+ All images in your archive are now searchable!
+            """
+            
+            dialog_msg = f"Archive Processing Complete!\n\n" \
+                        f"Tagged {analyzed} images for searchable archive\n" \
+                        f"Processing time: {processing_time:.1f} seconds\n" \
+                        f"Average quality: {avg_rating:.2f}/5 stars"
+        else:
+            # Curated mode summary  
+            iqa_model = results.get('iqa_model', 'unknown')
+            
+            summary = f"""
+📷 Curated Processing Complete!
+
+ Processing Summary:
    • Total images found: {total_found}
    • High-quality images analyzed: {analyzed}
    • Metadata files written: {written}
@@ -333,21 +449,22 @@ class ImageAnalyzerApp:
    • Quality assessment: {iqa_model.upper()}
    • AI analysis model: {ai_model.upper()}
 
-✅ All selected images have been processed and tagged!
-        """
+ Top-quality images have been processed and tagged!
+            """
+            
+            dialog_msg = f"Successfully processed {analyzed} high-quality images!\n\n" \
+                        f"Processing time: {processing_time:.1f} seconds\n" \
+                        f"Metadata written: {written} files"
         
         self.log(summary)
-        messagebox.showinfo("Processing Complete", 
-                           f"Successfully processed {analyzed} high-quality images!\n\n"
-                           f"Processing time: {processing_time:.1f} seconds\n"
-                           f"Metadata written: {written} files")
+        messagebox.showinfo("Processing Complete", dialog_msg)
     
     def handle_error(self):
         """Handle pipeline error"""
         self.is_processing = False
         self.start_button.config(state='normal')
         self.stop_button.config(state='disabled')
-        self.log("❌ Processing failed. Check the error messages above.")
+        self.log(" Processing failed. Check the error messages above.")
         messagebox.showerror("Processing Error", 
                            "An error occurred during processing. Please check the log for details.")
     
