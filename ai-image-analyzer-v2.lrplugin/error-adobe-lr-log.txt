@@ -1,0 +1,22 @@
+Plug-in error log for plug-in at: J:\TOOLS\ai-image-analyzer\ai-image-analyzer-v2.lrplugin
+
+**** Error 1
+
+The plug-in’s metadata provider description could not be read.
+'metadataFieldsForPhotos' was 'function'; should have been 'table'.
+
+**** Error 2
+
+Could not read the metadata spec from this plug-in.
+'metadataFieldsForPhotos' was 'function'; should have been 'table'.
+
+**** Error 3
+
+The plug-in’s metadata provider description could not be read.
+'metadataFieldsForPhotos' was 'function'; should have been 'table'.
+
+**** Error 4
+
+Could not read the metadata spec from this plug-in.
+'metadataFieldsForPhotos' was 'function'; should have been 'table'.
+

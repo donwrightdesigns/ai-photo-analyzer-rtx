@@ -91,7 +91,7 @@ local function sendToAnalyzer()
         LrDialog.message("AI Image Analyzer Launched", 
             "The AI Image Analyzer desktop app has been launched with " .. 
             #imagePaths .. " selected image(s).\n\n" ..
-            "After processing is complete, use 'Refresh Metadata from XMP' " ..
+            "After processing is complete, use 'Refresh Metadata from IPTC' " ..
             "to update Lightroom with the new analysis data.", 
             "info")
     end)

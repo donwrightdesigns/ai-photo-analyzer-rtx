@@ -1,0 +1,35 @@
+WSL2 Ollama Model Inventory - Migration Backup
+==============================================
+WSL2 Ollama Version: 0.9.6
+Windows Ollama Version: 0.11.6
+Migration Date: 2025-08-26
+
+Models to Transfer:
+==================
+gemma3:27b         (17 GB)   - Primary model, was "ghost" model
+gemma3:4b          (3.3 GB)  - Smaller Gemma variant
+bakllava:latest    (4.4 GB)  - BakLLaVA vision model
+llava:7b           (4.7 GB)  - LLaVA 7B vision model
+llava:13b          (8.0 GB)  - LLaVA 13B vision model  
+mistral:7b         (4.1 GB)  - Mistral 7B model
+llama2:13b         (7.4 GB)  - Llama 2 13B model
+llama3.2:3b        (2.0 GB)  - Llama 3.2 3B model
+llama3.2:1b        (1.3 GB)  - Llama 3.2 1B model
+
+Total Size: ~51GB
+
+Priority Models for AI Image Analyzer:
+======================================
+1. gemma3:27b      - Main analysis model
+2. bakllava:latest - Vision analysis
+3. llava:13b       - High-quality vision analysis
+4. llama3.2:3b     - General purpose, fast
+
+Migration Strategy:
+==================
+1. Start Windows Ollama
+2. Pull priority models first
+3. Pull remaining models as needed
+4. Stop WSL2 Ollama service
+5. Test applications
+6. Clean up WSL2 installation

@@ -5,14 +5,14 @@
 #  Date: July 20, 2025
 #
 #  CRITICAL UPDATES:
-#  - Migrated from google-generativeai to google-genai
+#  - Uses standard google-generativeai package
 #  - Added comprehensive file-based logging
 #  - Improved concurrent processing with system monitoring
 #  - Enhanced error handling and recovery
 #  - Better resource management for Lightroom compatibility
 # ---------------------------------------------------------------------
 
-import google.genai as genai  # MIGRATED: New package
+import google.generativeai as genai  # Standard Google Generative AI package
 import os
 import json
 import math

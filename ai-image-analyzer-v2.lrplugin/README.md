@@ -15,7 +15,7 @@ A streamlined Lightroom plugin that follows the Topaz Photo AI workflow pattern 
 2. Go to Library → Plug-in Extras → "Send to AI Image Analyzer"
 3. The desktop app will launch automatically with your selected images
 4. Process images in the desktop app
-5. Return to Lightroom and use Library → Plug-in Extras → "Refresh Metadata from XMP"
+5. Return to Lightroom and use Library → Plug-in Extras → "Refresh Metadata from IPTC"
 
 ### Processing Modes
 
@@ -36,7 +36,7 @@ A streamlined Lightroom plugin that follows the Topaz Photo AI workflow pattern 
 - Higher quality threshold for curation
 
 ### Metadata Refresh
-- **Refresh Metadata from XMP**: Forces Lightroom to re-read XMP sidecar files
+- **Refresh Metadata from IPTC**: Forces Lightroom to re-read embedded IPTC metadata from the image files
 - Use this after desktop app processing is complete
 - Updates keywords, ratings, descriptions, and other AI-generated metadata
 - Shows progress dialog during refresh
@@ -45,7 +45,7 @@ A streamlined Lightroom plugin that follows the Topaz Photo AI workflow pattern 
 
 - **Seamless Integration**: Works just like Topaz Photo AI or other external processors
 - **No Complex UI**: Simple menu items - all processing done in full-featured desktop app
-- **XMP Compatibility**: Uses XMP sidecar files for maximum Lightroom compatibility
+- **IPTC Compatibility**: Embeds IPTC metadata directly into images for maximum website and multi-app compatibility
 - **Batch Processing**: Handle multiple images simultaneously
 - **Mode Selection**: Archive mode for comprehensive tagging, Curated mode for quality filtering
 - **Progress Tracking**: Clear feedback during processing and metadata refresh
@@ -53,7 +53,7 @@ A streamlined Lightroom plugin that follows the Topaz Photo AI workflow pattern 
 ## Technical Details
 
 - **File Communication**: Uses temporary files to pass image lists to desktop app
-- **Metadata Format**: XMP sidecar files ensure Lightroom compatibility
+- **Metadata Format**: Embedded IPTC metadata written with ExifTool
 - **Auto-Discovery**: Automatically finds desktop app in standard installation locations
 - **Error Handling**: Clear error messages for troubleshooting
 
@@ -74,8 +74,8 @@ A streamlined Lightroom plugin that follows the Topaz Photo AI workflow pattern 
 - Plugin works with any supported image format
 
 ### Metadata not updating
-- Use "Refresh Metadata from XMP" after processing completes
-- Check that XMP files were created next to your images
+- Use "Refresh Metadata from IPTC" after processing completes
+- Ensure your catalog is configured to read metadata from files (Lightroom: Metadata → Read Metadata from File)
 - Ensure Lightroom has write permissions to image directories
 
 ### Command line integration

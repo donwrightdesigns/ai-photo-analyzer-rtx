@@ -67,7 +67,6 @@ def run_batch_mode(images, processing_mode='archive', config_path=None):
         config.update({
             'quality_threshold': 0.15,  # Higher threshold for curated
             'generate_curator': True,
-            'use_exif': False,
             'model_type': 'brisque',  # Fast quality assessment only
         })
         print(f"Running Curated Mode on {len(images)} images...")
@@ -76,7 +75,6 @@ def run_batch_mode(images, processing_mode='archive', config_path=None):
         config.update({
             'quality_threshold': 0.05,  # Lower threshold for archive
             'generate_curator': False,
-            'use_exif': False,  # Use XMP for Lightroom compatibility
         })
         print(f"Running Archive Mode on {len(images)} images...")
     

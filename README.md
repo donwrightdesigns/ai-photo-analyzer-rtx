@@ -18,7 +18,7 @@ This major update abandons the previous complex web-based plugin in favor of a r
 - **Local-First Processing**: Your images are processed on your machine, ensuring privacy and security.
 - **Powerful AI Models**: Supports local models like BakLLaVA for speed and Gemini for quality.
 - **RTX Acceleration**: Optimized for NVIDIA RTX GPUs for blazing-fast performance.
-- **XMP Sidecar Metadata**: Non-destructive metadata that works with Lightroom, Bridge, and Capture One.
+- **IPTC Embedded Metadata**: Industry-standard metadata embedded directly in image files for maximum compatibility with websites and photo platforms.
 
 ---
 
@@ -29,7 +29,7 @@ The new architecture is designed for simplicity and reliability:
 1.  **Select in Lightroom**: Choose images in the Library module.
 2.  **Send to Desktop App**: Use the `Plug-in Extras` menu to send images to the AI Image Analyzer desktop app.
 3.  **Analyze**: Use the full power of the desktop app to analyze your images in either Archive or Curated mode.
-4.  **Refresh in Lightroom**: Once finished, use the `Refresh Metadata` command in Lightroom to instantly see your new ratings, keywords, and descriptions.
+4.  **Refresh in Lightroom**: Once finished, use the `Refresh Metadata` command in Lightroom to instantly see your new ratings, keywords, and descriptions embedded directly in the image files.
 
 This workflow is faster, more reliable, and more powerful than the previous web-based plugin.
 

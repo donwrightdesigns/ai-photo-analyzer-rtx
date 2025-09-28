@@ -9,7 +9,7 @@ Successfully created a new, streamlined Lightroom plugin following the Topaz Pho
 ### How it Works
 1. **Send**: Lightroom plugin sends selected images to the standalone desktop GUI
 2. **Process**: Full processing happens in the desktop application (with full GUI, RTX acceleration, all features)
-3. **Refresh**: Lightroom plugin refreshes metadata from XMP sidecar files
+3. **Refresh**: Lightroom plugin refreshes metadata from IPTC embedded data in image files
 
 ### Benefits
 - ✅ **Simpler Plugin Code**: No complex UI or processing logic in Lightroom Lua
@@ -27,7 +27,7 @@ Successfully created a new, streamlined Lightroom plugin following the Topaz Pho
 - `SendToAnalyzer.lua` - General image launcher
 - `ArchiveMode.lua` - Archive mode launcher (comprehensive analysis)
 - `CuratedMode.lua` - Curated mode launcher (quality-focused)
-- `RefreshMetadata.lua` - XMP metadata refresh utility
+- `RefreshMetadata.lua` - IPTC metadata refresh utility
 - `MetadataProvider.lua` - Custom metadata field definitions
 - `README.md` - Installation and usage instructions
 
@@ -42,7 +42,7 @@ Successfully created a new, streamlined Lightroom plugin following the Topaz Pho
 1. **Send to AI Image Analyzer** - General processing with desktop GUI
 2. **AI Image Analyzer - Archive Mode** - Comprehensive batch processing
 3. **AI Image Analyzer - Curated Mode** - Quality-focused processing
-4. **Refresh Metadata from XMP** - Update Lightroom with processed metadata
+4. **Refresh Metadata from IPTC** - Update Lightroom with processed metadata embedded in images
 
 ### Context Menu (Right-click on images)
 - **Send to AI Image Analyzer** - Quick access to general processing
@@ -83,8 +83,8 @@ python main.py --images image_list.txt --batch          # Headless batch mode
 ### Communication Method
 - Plugin creates temporary text files with selected image paths
 - Desktop app reads image list and processes accordingly
-- Results written to XMP sidecar files
-- Plugin refreshes Lightroom metadata from XMP files
+- Results written as IPTC metadata embedded directly in image files
+- Plugin refreshes Lightroom metadata from embedded IPTC data
 
 ### Auto-Discovery
 Plugin searches for desktop app in:
@@ -114,7 +114,7 @@ Plugin searches for desktop app in:
 3. Desktop app launches automatically
 4. Processing happens with full GUI features and RTX acceleration
 5. Close desktop app when complete
-6. Back in Lightroom: Library → Plug-in Extras → "Refresh Metadata from XMP"
+6. Back in Lightroom: Library → Plug-in Extras → "Refresh Metadata from IPTC"
 7. Updated ratings, keywords, and descriptions appear in Lightroom
 ```
 

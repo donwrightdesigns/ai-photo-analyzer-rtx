@@ -24,7 +24,7 @@ return {
             file = "CuratedMode.lua",
         },
         {
-            title = "Refresh Metadata from XMP",
+            title = "Refresh Metadata from IPTC",
             file = "RefreshMetadata.lua",
         },
     },

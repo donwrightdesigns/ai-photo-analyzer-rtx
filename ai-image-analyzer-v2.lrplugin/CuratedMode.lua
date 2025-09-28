@@ -87,7 +87,7 @@ local function curatedMode()
             "• Quality filtering and rating\n" ..
             "• Essential metadata extraction\n" ..
             "• Quick AI analysis\n\n" ..
-            "Use 'Refresh Metadata from XMP' when processing completes.", 
+            "Use 'Refresh Metadata from IPTC' when processing completes.",
             "info")
     end)
 end

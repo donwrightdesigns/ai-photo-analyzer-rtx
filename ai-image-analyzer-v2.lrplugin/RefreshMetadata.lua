@@ -16,7 +16,7 @@ local function refreshMetadata()
         end
         
         local progressScope = LrProgressScope({
-            title = "Refreshing metadata from XMP files...",
+            title = "Refreshing metadata from embedded IPTC data...",
             functionContext = catalog,
         })
         
@@ -27,7 +27,7 @@ local function refreshMetadata()
                 progressScope:setPortionComplete(i - 1, #selectedPhotos)
                 progressScope:setCaption("Processing: " .. (photo:getFormattedMetadata("fileName") or "Unknown"))
                 
-                -- Force Lightroom to re-read XMP metadata
+                -- Force Lightroom to re-read embedded IPTC metadata
                 photo:readMetadata()
                 
                 if progressScope:isCanceled() then

@@ -87,7 +87,7 @@ local function archiveMode()
             "• AI tagging and descriptions\n" ..
             "• Technical metadata extraction\n" ..
             "• Searchable keyword generation\n\n" ..
-            "Use 'Refresh Metadata from XMP' when processing completes.", 
+            "Use 'Refresh Metadata from IPTC' when processing completes.",
             "info")
     end)
 end

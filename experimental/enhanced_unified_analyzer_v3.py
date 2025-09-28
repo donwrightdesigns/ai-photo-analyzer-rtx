@@ -32,7 +32,7 @@ from datetime import datetime
 
 # Try to import optional dependencies
 try:
-    import google.genai as genai
+    import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False

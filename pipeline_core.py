@@ -31,6 +31,10 @@ import time
 import math
 from typing import List, Dict, Optional, Tuple, Any
 
+# Import our standalone analyzers and unified taxonomy
+from scripts.llava_standalone_analyzer import LLaVAStandaloneAnalyzer
+from photography_taxonomy import get_analysis_prompt, PHOTOGRAPHER_PERSONAS
+
 
 class ImageCurationEngine:
     """
@@ -238,14 +242,15 @@ class ContentGenerationEngine:
         """
         self.config = model_config
         self.gemini_model = None
-        self.llava_13b_model = None  # Local LLaVA 13B
+        self.llava_13b_model = None  # Ollama-based LLaVA 13B (legacy)
+        self.llava_standalone_analyzer = None  # PyLLMCore-based LLaVA (new)
         self.ollama_url = model_config.get('ollama_url', 'http://localhost:11434')
         self._init_models()
     
     def _init_models(self):
-        """Initialize available models: LLaVA 13B and Gemini."""
+        """Initialize available models: LLaVA 13B standalone and Gemini."""
         self._init_gemini()  # Cloud fallback
-        self._init_llava_13b()  # Local LLaVA 13B
+        self._init_llava_standalone()  # New: PyLLMCore-based LLaVA
 
     def _init_gemini(self):
         """Initialize Gemini model as fallback option."""
@@ -253,27 +258,38 @@ class ContentGenerationEngine:
             try:
                 genai.configure(api_key=self.config['google_api_key'])
                 self.gemini_model = genai.GenerativeModel(self.config.get('gemini_model', 'gemini-pro-vision'))
-                print("✅ Gemini model initialized (fallback)")
+                print("[INFO] Gemini model initialized (fallback)")
             except Exception as e:
-                print(f"❌ Failed to initialize Gemini model: {e}")
+                print(f"[ERROR] Failed to initialize Gemini model: {e}")
 
-    def _init_llava_13b(self):
-        """Initialize local LLaVA 13B model via Ollama."""
+    def _init_llava_standalone(self):
+        """Initialize PyLLMCore-based LLaVA 13B analyzer."""
         try:
-            # Test if LLaVA 13B is available locally
-            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
-            if response.status_code == 200:
-                models = response.json().get('models', [])
-                llava_models = [m for m in models if 'llava' in m['name'].lower() and '13b' in m['name']]
-                if llava_models:
-                    self.llava_13b_model = llava_models[0]['name']  # Use first available LLaVA 13B
-                    print(f"✅ LLaVA 13B model initialized: {self.llava_13b_model}")
-                else:
-                    print("❌ LLaVA 13B model not found locally")
+            # Get models directory and GPU config from settings
+            models_dir = self.config.get('llava_models_dir', 'J:/models')
+            
+            # Build GPU configuration
+            gpu_config = {
+                'enable_rtx': self.config.get('enable_rtx', torch.cuda.is_available()),
+                'rtx_gpu_layers': self.config.get('rtx_gpu_layers', 35),
+                'rtx_batch_size': str(self.config.get('rtx_batch_size', 512))
+            }
+            
+            self.llava_standalone_analyzer = LLaVAStandaloneAnalyzer(
+                models_dir=models_dir,
+                gpu_config=gpu_config
+            )
+            
+            if self.llava_standalone_analyzer.available:
+                device_info = "GPU" if gpu_config['enable_rtx'] else "CPU"
+                print(f"[INFO] LLaVA 13B Standalone analyzer initialized on {device_info}")
             else:
-                print("❌ Ollama service not available for local LLaVA 13B")
+                print("[ERROR] LLaVA 13B Standalone analyzer failed to initialize")
+                self.llava_standalone_analyzer = None
+                
         except Exception as e:
-            print(f"❌ Failed to initialize LLaVA 13B: {e}")
+            print(f"[ERROR] Failed to initialize LLaVA Standalone: {e}")
+            self.llava_standalone_analyzer = None
 
     def _init_gemma_12b(self):
         """Initialize local Gemma 12B model via Ollama."""
@@ -285,13 +301,13 @@ class ContentGenerationEngine:
                 gemma_models = [m for m in models if 'gemma' in m['name'].lower() and ('12b' in m['name'] or '2b' in m['name'])]
                 if gemma_models:
                     self.gemma_12b_model = gemma_models[0]['name']  # Use first available Gemma model
-                    print(f"✅ Gemma model initialized: {self.gemma_12b_model}")
+                    print(f"[INFO] Gemma model initialized: {self.gemma_12b_model}")
                 else:
-                    print("❌ Gemma model not found locally")
+                    print("[ERROR] Gemma model not found locally")
             else:
-                print("❌ Ollama service not available for local Gemma")
+                print("[ERROR] Ollama service not available for local Gemma")
         except Exception as e:
-            print(f"❌ Failed to initialize Gemma: {e}")
+            print(f"[ERROR] Failed to initialize Gemma: {e}")
     
     def get_analysis_prompt(self, profile_key: str = 'professional_art_critic') -> str:
         """Generate analysis prompt based on selected profile."""
@@ -352,7 +368,7 @@ class ContentGenerationEngine:
         profile = PROMPT_PROFILES.get(profile_key, PROMPT_PROFILES['professional_art_critic'])
         
         # Build criteria text
-        criteria_text = "\\n".join([f"{i+1}. {criterion}" for i, criterion in enumerate(profile['criteria'])])
+        criteria_text = "\n".join([f"{i+1}. {criterion}" for i, criterion in enumerate(profile['criteria'])])
         
         # Build JSON template
         json_template = {
@@ -451,6 +467,35 @@ class ContentGenerationEngine:
         
         return resized_img
     
+    def analyze_image_with_llava_standalone(self, image_path: str) -> Optional[Dict[str, Any]]:
+        """Analyze image using standalone LLaVA 13B analyzer."""
+        if not self.llava_standalone_analyzer or not self.llava_standalone_analyzer.available:
+            return None
+            
+        try:
+            # Use the photography_taxonomy prompt
+            persona_key = self.config.get('persona_key', 'professional_art_critic')
+            prompt = get_analysis_prompt(persona_key)
+            
+            # Use the standalone analyzer directly
+            result = self.llava_standalone_analyzer.analyze_image(image_path, prompt)
+            
+            # The standalone analyzer returns the parsed JSON directly, or None/error dict
+            if result and not result.get('error'):
+                # Validate required keys
+                required_keys = ["category", "subcategory", "tags", "score"]
+                if all(k in result for k in required_keys):
+                    return result
+                else:
+                    print(f"LLaVA Standalone returned incomplete data: {result}")
+            elif result and result.get('error'):
+                print(f"LLaVA Standalone error: {result.get('error')}")
+                    
+        except Exception as e:
+            print(f"Error analyzing image with LLaVA Standalone: {e}")
+        
+        return None
+
     def analyze_image_with_gemini(self, image_path: str) -> Optional[Dict[str, Any]]:
         """Analyze image using Gemini model."""
         if not self.gemini_model:
@@ -655,21 +700,21 @@ class ContentGenerationEngine:
     def analyze_image(self, image_path: str) -> Optional[Dict[str, Any]]:
         """Analyze image using the best available model."""
         
-        # Priority order: Local LLaVA 13B > Gemini (fallback)
-        if self.llava_13b_model:
-            print(f"🚀 Using LLaVA 13B: {self.llava_13b_model}")
-            result = self.analyze_image_with_llava_13b(image_path)
+        # Priority order: LLaVA 13B Standalone > Gemini (fallback)
+        if self.llava_standalone_analyzer and self.llava_standalone_analyzer.available:
+            print("[INFO] Using LLaVA 13B Standalone")
+            result = self.analyze_image_with_llava_standalone(image_path)
             if result:
                 return result
         
         if self.gemini_model:
-            print("☁️ Using Gemini (fallback)")
+            print("[INFO] Using Gemini (fallback)")
             result = self.analyze_image_with_gemini(image_path)
             if result:
                 return result
         
         # Final fallback if all models fail
-        print("⚠️ All models failed, using placeholder")
+        print("[WARNING] All models failed, using placeholder")
         return {
             "category": "Thing",
             "subcategory": "Other",
@@ -683,8 +728,8 @@ class MetadataPersistenceLayer:
     """
     Stage 3: Robust Metadata Writing
     
-    Handles writing analysis results to XMP sidecar files or embedded EXIF/IPTC
-    metadata using PyExifTool for maximum compatibility and reliability.
+    Handles writing analysis results to embedded IPTC metadata using PyExifTool
+    for maximum website compatibility and reliability.
     """
     
     def __init__(self, exiftool_path: Optional[str] = None):
@@ -703,64 +748,11 @@ class MetadataPersistenceLayer:
             with exiftool.ExifToolHelper(executable=self.exiftool_path) as et:
                 # Test with version check instead of empty metadata call
                 et.execute("-ver")
-            print(" ExifTool is available and working")
+            print("[INFO] ExifTool is available and working")
         except Exception as e:
-            print(f" ExifTool not available: {e}")
+            print(f"[ERROR] ExifTool not available: {e}")
             print("Please install ExifTool: https://exiftool.org/")
     
-    def write_xmp_sidecar(self, image_path: str, analysis_data: Dict[str, Any]) -> bool:
-        """
-        Write analysis data to XMP sidecar file.
-        
-        Args:
-            image_path (str): Path to the original image file
-            analysis_data (dict): Analysis results to write
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            image_path = Path(image_path)
-            # Correct XMP naming: filename.xmp (not filename.jpg.xmp)
-            xmp_path = image_path.with_suffix('.xmp')
-            
-            # Prepare metadata
-            tags = analysis_data.get('tags', [])
-            description = analysis_data.get('critique', '')
-            rating = analysis_data.get('score', 3)  # Default to 3 stars if no rating
-            
-            # Ensure rating is a valid integer
-            if rating is None or not isinstance(rating, (int, float)):
-                rating = 3
-            else:
-                rating = int(rating)
-                rating = max(1, min(5, rating))  # Clamp to 1-5 range
-            
-            # Add GALLERY tag for 5-star ratings
-            if rating == 5 and "GALLERY" not in tags:
-                tags.append("GALLERY")
-            
-            metadata_dict = {
-                "XMP-dc:Subject": tags,
-                "IPTC:Keywords": tags,
-                "XMP-dc:Description": description,
-                "XMP:Rating": rating,
-                "XMP-dc:Title": f"Rating: {rating}/5"
-            }
-            
-            with exiftool.ExifToolHelper(executable=self.exiftool_path) as et:
-                et.set_tags(
-                    [str(xmp_path)],
-                    tags=metadata_dict,
-                    params=["-overwrite_original"]
-                )
-            
-            print(f" XMP sidecar written: {xmp_path.name}")
-            return True
-            
-        except Exception as e:
-            print(f" Error writing XMP sidecar for {os.path.basename(image_path)}: {e}")
-            return False
     
     def write_embedded_metadata(self, image_path: str, analysis_data: Dict[str, Any]) -> bool:
         """
@@ -804,28 +796,27 @@ class MetadataPersistenceLayer:
                     params=["-overwrite_original"]
                 )
             
-            print(f" Embedded metadata written: {os.path.basename(image_path)}")
+            print(f"[INFO] Embedded metadata written: {os.path.basename(image_path)}")
             return True
             
         except Exception as e:
-            print(f" Error writing embedded metadata for {os.path.basename(image_path)}: {e}")
+            print(f"[ERROR] Error writing embedded metadata for {os.path.basename(image_path)}: {e}")
             return False
     
-    def write_metadata_batch(self, analysis_results: List[Dict[str, Any]], use_exif: bool = False,
+    def write_metadata_batch(self, analysis_results: List[Dict[str, Any]],
                             status_queue: Optional[queue.Queue] = None) -> int:
         """
-        Write metadata for a batch of analysis results.
+        Write IPTC metadata for a batch of analysis results directly to image files.
         
         Args:
             analysis_results (list): List of analysis result dictionaries
-            use_exif (bool): If True, write to image files; otherwise, XMP sidecars
             status_queue (Queue): Optional queue for progress updates
             
         Returns:
             int: Number of files successfully processed
         """
         if status_queue:
-            status_queue.put(f" Writing metadata for {len(analysis_results)} images...")
+            status_queue.put(f" Writing IPTC metadata for {len(analysis_results)} images...")
         
         success_count = 0
         
@@ -834,18 +825,15 @@ class MetadataPersistenceLayer:
             analysis_data = result.get('analysis', {})
             
             if status_queue:
-                status_queue.put(f" Writing metadata {i+1}/{len(analysis_results)}: {os.path.basename(image_path)}")
+                status_queue.put(f" Writing IPTC metadata {i+1}/{len(analysis_results)}: {os.path.basename(image_path)}")
             
-            if use_exif:
-                success = self.write_embedded_metadata(image_path, analysis_data)
-            else:
-                success = self.write_xmp_sidecar(image_path, analysis_data)
+            success = self.write_embedded_metadata(image_path, analysis_data)
             
             if success:
                 success_count += 1
         
         if status_queue:
-            status_queue.put(f" Metadata writing complete: {success_count}/{len(analysis_results)} files processed")
+            status_queue.put(f" IPTC metadata writing complete: {success_count}/{len(analysis_results)} files processed")
         
         return success_count
 
@@ -907,12 +895,12 @@ class MultiStageProcessingPipeline:
         
         # Stage 3: AI Content Analysis
         if status_queue:
-            status_queue.put(f"🧠 Starting AI analysis of {len(curated_images)} curated images...")
+            status_queue.put(f"[INFO] Starting AI analysis of {len(curated_images)} curated images...")
         
         analysis_results = []
         for i, (image_path, quality_score) in enumerate(curated_images):
             if status_queue:
-                status_queue.put(f"🧠 Analyzing {i+1}/{len(curated_images)}: {os.path.basename(image_path)}")
+                status_queue.put(f"[INFO] Analyzing {i+1}/{len(curated_images)}: {os.path.basename(image_path)}")
             
             analysis_data = self.content_engine.analyze_image(image_path)
             
@@ -933,11 +921,11 @@ class MultiStageProcessingPipeline:
                     tags_str = str(tags)[:50]  # Limit to 50 chars
                 
                 # Stars representation
-                stars = '⭐' * min(score, 5) if score > 0 else '⭐'
+                stars = '*' * min(score, 5) if score > 0 else '*'
                 
                 # Detailed progress with results
                 if status_queue:
-                    status_queue.put(f"✅ {category} | {subcategory} | {tags_str} | {stars} ({score}/10)")
+                    status_queue.put(f"[OK] {category} | {subcategory} | {tags_str} | {stars} ({score}/10)")
                 
                 result = {
                     'file_path': image_path,
@@ -948,9 +936,8 @@ class MultiStageProcessingPipeline:
                 analysis_results.append(result)
         
         # Stage 4: Metadata Writing
-        use_exif = self.config.get('use_exif', False)
         success_count = self.metadata_layer.write_metadata_batch(
-            analysis_results, use_exif, status_queue
+            analysis_results, status_queue
         )
         
         # Final statistics
@@ -968,10 +955,10 @@ class MultiStageProcessingPipeline:
         }
         
         if status_queue:
-            status_queue.put(f" Pipeline Complete!")
-            status_queue.put(f" Processed {success_count}/{len(analysis_results)} images in {total_time:.1f}s")
-            status_queue.put(f" Used {self.curation_engine.iqa_model_name.upper()} quality assessment")
-            status_queue.put(f"🤖 Used {self.config.get('model_type', 'unknown').upper()} AI model")
+            status_queue.put(f"[INFO] Pipeline Complete!")
+            status_queue.put(f"[INFO] Processed {success_count}/{len(analysis_results)} images in {total_time:.1f}s")
+            status_queue.put(f"[INFO] Used {self.curation_engine.iqa_model_name.upper()} quality assessment")
+            status_queue.put(f"[INFO] Used {self.config.get('model_type', 'unknown').upper()} AI model")
         
         return stats
     
@@ -1027,8 +1014,7 @@ class MultiStageProcessingPipeline:
                 analysis_results.append(result)
         
         # Stage 4: Metadata Writing
-        use_exif = self.config.get('use_exif', False)
-        success_count = self._write_metadata_with_callback(analysis_results, use_exif, status_callback)
+        success_count = self._write_metadata_with_callback(analysis_results, status_callback)
         
         # Final statistics
         total_time = time.time() - start_time
@@ -1106,11 +1092,11 @@ class MultiStageProcessingPipeline:
         
         return top_images
     
-    def _write_metadata_with_callback(self, analysis_results: List[Dict[str, Any]], use_exif: bool = False,
+    def _write_metadata_with_callback(self, analysis_results: List[Dict[str, Any]],
                                      status_callback: callable = None) -> int:
-        """Write metadata with callback instead of queue."""
+        """Write IPTC metadata with callback instead of queue."""
         if status_callback:
-            status_callback(f"[INFO] Writing metadata for {len(analysis_results)} images...")
+            status_callback(f"[INFO] Writing IPTC metadata for {len(analysis_results)} images...")
         
         success_count = 0
         
@@ -1119,18 +1105,15 @@ class MultiStageProcessingPipeline:
             analysis_data = result.get('analysis', {})
             
             if status_callback:
-                status_callback(f"[PROGRESS] Writing metadata {i+1}/{len(analysis_results)}: {os.path.basename(image_path)}")
+                status_callback(f"[PROGRESS] Writing IPTC metadata {i+1}/{len(analysis_results)}: {os.path.basename(image_path)}")
             
-            if use_exif:
-                success = self.metadata_layer.write_embedded_metadata(image_path, analysis_data)
-            else:
-                success = self.metadata_layer.write_xmp_sidecar(image_path, analysis_data)
+            success = self.metadata_layer.write_embedded_metadata(image_path, analysis_data)
             
             if success:
                 success_count += 1
         
         if status_callback:
-            status_callback(f"[OK] Metadata writing complete: {success_count}/{len(analysis_results)} files processed")
+            status_callback(f"[OK] IPTC metadata writing complete: {success_count}/{len(analysis_results)} files processed")
         
         return success_count
     
@@ -1165,12 +1148,8 @@ class MultiStageProcessingPipeline:
                 'timestamp': time.time()
             }
             
-            # Write metadata
-            use_exif = self.config.get('use_exif', False)
-            if use_exif:
-                metadata_success = self.metadata_layer.write_embedded_metadata(image_path, analysis_data)
-            else:
-                metadata_success = self.metadata_layer.write_xmp_sidecar(image_path, analysis_data)
+            # Write metadata using IPTC
+            metadata_success = self.metadata_layer.write_embedded_metadata(image_path, analysis_data)
             
             processing_time = time.time() - start_time
             
@@ -1252,8 +1231,7 @@ class MultiStageProcessingPipeline:
                 analysis_results.append(result)
         
         # Write metadata for ALL processed images
-        use_exif = self.config.get('use_exif', False)
-        success_count = self._write_metadata_with_callback(analysis_results, use_exif, status_callback)
+        success_count = self._write_metadata_with_callback(analysis_results, status_callback)
         
         # Generate archive statistics
         stats = self._generate_archive_stats(analysis_results)

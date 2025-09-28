@@ -4,8 +4,9 @@ flask==3.1.1
 flask-socketio==5.5.1
 flask-cors==6.0.1
 
-# AI and ML libraries - MIGRATED to new package
-google-genai>=0.8.0
+# AI and ML libraries - Support both old and new Google Generative AI packages
+google-generativeai>=0.8.0
+# google-genai>=0.8.0  # Alternative newer package (commented until full migration)
 pillow==11.3.0
 
 # Image Quality Assessment and ML frameworks

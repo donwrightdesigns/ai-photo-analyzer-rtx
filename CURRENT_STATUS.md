@@ -15,7 +15,7 @@ Location: `ai-image-analyzer-v2.lrplugin/`
 - **Send to AI Image Analyzer** - Core functionality
 - **Archive Mode** - Comprehensive batch analysis
 - **Curated Mode** - Quality-focused processing  
-- **Refresh Metadata from XMP** - Updates Lightroom
+- **Refresh Metadata from IPTC** - Updates Lightroom
 - **Professional implementation** following Topaz Photo AI pattern
 
 #### ✅ Desktop Application
@@ -54,7 +54,7 @@ Location: `ai-image-analyzer-v2.lrplugin/`
 3. **Test Lightroom Plugin:**
    - Install `ai-image-analyzer-v2.lrplugin` in Lightroom
    - Test "Send to AI Image Analyzer" functionality
-   - Test "Refresh Metadata from XMP"
+   - Test "Refresh Metadata from IPTC"
 
 ### 📁 KEY FILES TO CHECK:
 - `main.py` - New desktop app entry point
