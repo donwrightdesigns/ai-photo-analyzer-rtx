@@ -30,22 +30,41 @@ class ConfigManager:
         self.config_file = self.config_dir / "config.json"
         self.config_dir.mkdir(exist_ok=True)
         
-        # Default configuration
+        # Default configuration - Focus on Ollama local models, Gemini as fallback
         self.defaults = {
-            "model_type": "gemini",
+            "model_type": "ollama",  # Use Ollama for local models
             "google_api_key": "",
             "quality_threshold": 0.10,
             "iqa_model": "brisque",
             "use_exif": False,
             "generate_curator": False,
             "persona_profile": "professional_art_critic",
-            "enable_rtx": True,
-            "rtx_gpu_layers": 35,
-            "rtx_batch_size": "512",
-            "rtx_max_vram": 8.0,
-            "gemini_model": "gemini-2.0-flash-exp",
+            "gemini_model": "gemini-2.0-flash",  # 15 RPM vs 10 RPM for exp (fallback only)
+            
+            # Ollama configuration
             "ollama_url": "http://localhost:11434",
-            "ollama_model": "llava:13b"
+            "ollama_model": "llava:13b",
+            "ollama_timeout": 30,
+            "gpu_load_profile": "⚡ Normal Demand (Balanced)",
+            
+            # Available Ollama models (will be populated dynamically)
+            "available_ollama_models": {
+                "llava:13b": {
+                    "name": "LLaVA 13B",
+                    "description": "LLaVA 13B parameter model - higher quality",
+                    "size": "~7GB", "speed": "Medium", "quality": "Excellent"
+                },
+                "llava:7b": {
+                    "name": "LLaVA 7B", 
+                    "description": "LLaVA 7B parameter model",
+                    "size": "~4GB", "speed": "Fast", "quality": "Good"
+                },
+                "llava:13b": {
+                    "name": "LLaVA 13B",
+                    "description": "LLaVA 13B parameter model - higher quality",
+                    "size": "~7GB", "speed": "Medium", "quality": "Excellent"
+                }
+            }
         }
         
     def load_config(self):
@@ -151,7 +170,10 @@ class StatusDisplay:
         self.quality_label.pack(side=tk.LEFT, padx=(0, 15))
         
         self.metadata_label = tk.Label(self.status_frame, bg='#f0f0f0', fg='#660066', font=('Arial', 9, 'bold'))
-        self.metadata_label.pack(side=tk.LEFT, padx=(0, 5))
+        self.metadata_label.pack(side=tk.LEFT, padx=(0, 15))
+        
+        self.gpu_load_label = tk.Label(self.status_frame, bg='#f0f0f0', fg='#cc0066', font=('Arial', 9, 'bold'))
+        self.gpu_load_label.pack(side=tk.LEFT, padx=(0, 5))
         
         return self.status_frame
         
@@ -160,19 +182,35 @@ class StatusDisplay:
         if not self.status_frame:
             return
             
-        model_text = f"Model: {config.get('model_type', 'Unknown').upper()}"
+        model_type = config.get('model_type', 'Unknown')
+        if model_type == 'ollama':
+            ollama_model = config.get('ollama_model', 'llava:13b')
+            model_text = f"Model: Ollama ({ollama_model})"
+        else:
+            model_text = f"Model: {model_type.upper()}"
         
-        gpu_enabled = config.get('enable_rtx', False) and config.get('model_type') in ['bakllava', 'llava_standalone', 'llava_13b']
-        gpu_text = f"GPU: {'RTX Enabled' if gpu_enabled else 'CPU Only'}"
+        # Ollama can use GPU acceleration internally
+        is_local_model = model_type == 'ollama'
+        gpu_text = f"Processing: {'Local (GPU)' if is_local_model else 'Cloud API'}"
         
         quality_text = f"Quality: {config.get('quality_threshold', 0.1)*100:.0f}%"
         
         metadata_text = f"Metadata: {'EXIF' if config.get('use_exif', False) else 'XMP'}"
         
+        # GPU load profile display
+        gpu_load_profile = config.get('gpu_load_profile', '⚡ Normal Demand (Balanced)')
+        if '🔥 Hurt My GPU' in gpu_load_profile:
+            gpu_load_text = "Load: 🔥 Maximum"
+        elif '🌿 Light Demand' in gpu_load_profile:
+            gpu_load_text = "Load: 🌿 Background"
+        else:
+            gpu_load_text = "Load: ⚡ Balanced"
+        
         self.model_label.config(text=model_text)
         self.gpu_label.config(text=gpu_text)
         self.quality_label.config(text=quality_text)
         self.metadata_label.config(text=metadata_text)
+        self.gpu_load_label.config(text=gpu_load_text)
 
 class SettingsDialog:
     """Separate settings dialog window"""
@@ -193,14 +231,22 @@ class SettingsDialog:
         self.model_type_var = tk.StringVar(value=self.config.get("model_type", "gemini"))
         self.api_key_var = tk.StringVar(value=self.config.get("google_api_key", ""))
         self.quality_threshold_var = tk.DoubleVar(value=self.config.get("quality_threshold", 0.10))
-        self.iqa_model_var = tk.StringVar(value=self.config.get("iqa_model", "brisque"))
+        # Get current IQA model and set display value if mapping exists
+        current_iqa = self.config.get("iqa_model", "brisque")
+        self.iqa_model_var = tk.StringVar(value=current_iqa)
         self.use_exif_var = tk.BooleanVar(value=self.config.get("use_exif", False))
         self.generate_curator_var = tk.BooleanVar(value=self.config.get("generate_curator", False))
         self.persona_profile_var = tk.StringVar(value=self.config.get("persona_profile", "professional_art_critic"))
-        self.enable_rtx_var = tk.BooleanVar(value=self.config.get("enable_rtx", True))
-        self.rtx_gpu_layers_var = tk.IntVar(value=self.config.get("rtx_gpu_layers", 35))
-        self.rtx_batch_size_var = tk.StringVar(value=self.config.get("rtx_batch_size", "512"))
-        self.rtx_max_vram_var = tk.DoubleVar(value=self.config.get("rtx_max_vram", 8.0))
+        # Ollama-specific settings
+        self.ollama_url_var = tk.StringVar(value=self.config.get("ollama_url", "http://localhost:11434"))
+        self.ollama_model_var = tk.StringVar(value=self.config.get("ollama_model", "llava:13b"))
+        self.ollama_timeout_var = tk.IntVar(value=self.config.get("ollama_timeout", 300))
+        
+        # Description threshold setting
+        self.description_threshold_var = tk.StringVar(value=self.config.get("description_threshold", "4+ Stars"))
+        
+        # GPU load profile setting
+        self.gpu_load_profile_var = tk.StringVar(value=self.config.get("gpu_load_profile", "⚡ Normal Demand (Balanced)"))
     
     def show_dialog(self):
         """Show the settings dialog"""
@@ -261,36 +307,116 @@ class SettingsDialog:
                  foreground='blue', font=('Arial', 9)).pack(anchor=tk.W)
         
         # 2. Model Selection Section
-        model_frame = ttk.LabelFrame(scrollable_frame, text="AI Model Selection", padding="10")
+        model_frame = ttk.LabelFrame(scrollable_frame, text="🤖 AI Model Selection", padding="10")
         model_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Radiobutton(model_frame, text="LLaVA 13B (Local, GPU-Optimized, Recommended)", 
-                       variable=self.model_type_var, value="llava_13b",
-                       command=self.on_model_change).pack(anchor=tk.W, pady=5)
+        # Cloud Models Section
+        cloud_label = ttk.Label(model_frame, text="☁️ Cloud Models (Require Internet & API Key)", 
+                              font=('Arial', 10, 'bold'), foreground='#0066cc')
+        cloud_label.pack(anchor=tk.W, pady=(0, 5))
         
-        ttk.Radiobutton(model_frame, text="Google Gemini (Cloud-based, Fast Fallback)", 
+        ttk.Radiobutton(model_frame, text="Google Gemini 2.0 Flash (15 RPM, Recommended Cloud)", 
                        variable=self.model_type_var, value="gemini",
-                       command=self.on_model_change).pack(anchor=tk.W, pady=5)
+                       command=self.on_model_change).pack(anchor=tk.W, padx=(20, 0), pady=2)
         
-        # Model info
+        ttk.Label(model_frame, text="   ↳ Fast, reliable, 15 requests/minute free tier", 
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=(20, 0))
+        
+        # Local Models Section (Ollama)
+        local_label = ttk.Label(model_frame, text="🔒 Local Models via Ollama (Privacy, No Internet Required)", 
+                              font=('Arial', 10, 'bold'), foreground='#006600')
+        local_label.pack(anchor=tk.W, pady=(15, 5))
+        
+        # Add Ollama option
+        ttk.Radiobutton(model_frame, text="✅ Ollama Local Models (Recommended for Privacy)", 
+                       variable=self.model_type_var, value="ollama",
+                       command=self.on_model_change).pack(anchor=tk.W, padx=(20, 0), pady=2)
+        
+        ttk.Label(model_frame, text="   ↳ Uses locally running Ollama with LLaVA vision models", 
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=(20, 0))
+        
+        # Get available Ollama models
+        ollama_models = self.config.get('available_ollama_models', {})
+        
+        # Show available Ollama models as info only
+        if ollama_models:
+            ttk.Label(model_frame, text="   Available models (auto-detected):", 
+                     font=('Arial', 8), foreground='blue').pack(anchor=tk.W, padx=(20, 0), pady=(5, 0))
+            
+            for model_key, model_info in list(ollama_models.items())[:3]:  # Show top 3
+                name = model_info.get('name', model_key)
+                description = model_info.get('description', '')
+                ttk.Label(model_frame, text=f"     • {name}: {description}", 
+                         font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=(20, 0))
+        
+        # Model info and warnings
         info_frame = ttk.Frame(model_frame)
         info_frame.pack(fill=tk.X, pady=(10, 0))
         
-        ttk.Label(info_frame, text="[INFO] LLaVA 13B is recommended for best performance and privacy. Gemini provides cloud backup.",
+        # Rate limit warning
+        ttk.Label(info_frame, text="⚠️ Gemini Free Tier: 15 requests/minute limit. Use local models for large batches.", 
+                 font=('Arial', 9), foreground='orange').pack(anchor=tk.W)
+        
+        ttk.Label(info_frame, text="💡 Local models run directly on your GPU/CPU. LLaVA models support image analysis.", 
                  font=('Arial', 9), foreground='blue').pack(anchor=tk.W)
         
-        # Download Models Section
-        download_frame = ttk.Frame(model_frame)
-        download_frame.pack(fill=tk.X, pady=(10, 0))
+        # 2b. Ollama Configuration Section
+        self.ollama_frame = ttk.LabelFrame(scrollable_frame, text="🔧 Ollama Configuration", padding="10")
+        self.ollama_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Button(download_frame, text="Download Local Models", 
-                  command=self.show_model_download).pack(side=tk.LEFT)
+        # Ollama URL
+        url_frame = ttk.Frame(self.ollama_frame)
+        url_frame.pack(fill=tk.X, pady=(0, 5))
         
-        ttk.Label(download_frame, text="Download compatible local models", 
-                 font=('Arial', 9), foreground='gray').pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(url_frame, text="Ollama Server URL:").pack(side=tk.LEFT)
+        url_entry = ttk.Entry(url_frame, textvariable=self.ollama_url_var, width=30)
+        url_entry.pack(side=tk.LEFT, padx=(10, 0))
         
-        # 3. GPU Optimization Section
-        self.gpu_frame = ttk.LabelFrame(scrollable_frame, text="GPU Optimization", padding="10")
+        # Ollama Model Selection
+        model_sel_frame = ttk.Frame(self.ollama_frame)
+        model_sel_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(model_sel_frame, text="Model:").pack(side=tk.LEFT)
+        model_combo = ttk.Combobox(model_sel_frame, textvariable=self.ollama_model_var,
+                                  values=['llava:7b', 'llava:13b', 'llava:34b', 'bakllava:latest'],
+                                  width=20)
+        model_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # GPU Load Profile setting
+        gpu_load_frame = ttk.Frame(self.ollama_frame)
+        gpu_load_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(gpu_load_frame, text="GPU Load Profile:").pack(side=tk.LEFT)
+        
+        gpu_load_combo = ttk.Combobox(gpu_load_frame, 
+                                     textvariable=getattr(self, 'gpu_load_profile_var', tk.StringVar(value="Normal Demand")),
+                                     values=["💥 Hurt My GPU (Maximum Speed)", 
+                                            "⚡ Normal Demand (Balanced)", 
+                                            "🌙 Light Demand (Background Safe)"],
+                                     state='readonly', width=30)
+        gpu_load_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Store the variable if it doesn't exist
+        if not hasattr(self, 'gpu_load_profile_var'):
+            self.gpu_load_profile_var = tk.StringVar(value="⚡ Normal Demand (Balanced)")
+            gpu_load_combo.config(textvariable=self.gpu_load_profile_var)
+        
+        ttk.Label(gpu_load_frame, text="(automatically sets timeouts and delays)", 
+                 font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Ollama status and test button
+        status_frame = ttk.Frame(self.ollama_frame)
+        status_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        ttk.Button(status_frame, text="Test Connection", 
+                  command=self.test_ollama_connection).pack(side=tk.LEFT)
+        
+        self.ollama_status_label = ttk.Label(status_frame, text="", 
+                                           font=('Arial', 9))
+        self.ollama_status_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # 3. Hardware Information Section
+        self.gpu_frame = ttk.LabelFrame(scrollable_frame, text="🖥️ Hardware & Performance", padding="10")
         self.gpu_frame.pack(fill=tk.X, pady=(0, 10))
         
         # GPU Detection Info
@@ -304,81 +430,102 @@ class SettingsDialog:
             ttk.Label(gpu_info_frame, text=f"VRAM: {self.gpu_info['gpu_memory']:.1f} GB", 
                      font=('Arial', 9)).pack(anchor=tk.W)
         
-        # RTX Enable Checkbox
-        rtx_check = ttk.Checkbutton(self.gpu_frame, text="Enable RTX GPU Acceleration", 
-                                   variable=self.enable_rtx_var, command=self.on_rtx_toggle)
-        rtx_check.pack(anchor=tk.W, pady=(0, 10))
+        # Ollama GPU Information
+        ollama_gpu_frame = ttk.Frame(self.gpu_frame)
+        ollama_gpu_frame.pack(fill=tk.X, pady=(10, 0))
         
-        # RTX Settings
-        self.rtx_settings_frame = ttk.Frame(self.gpu_frame)
-        self.rtx_settings_frame.pack(fill=tk.X, padx=(20, 0))
-        
-        # GPU Layers
-        layers_frame = ttk.Frame(self.rtx_settings_frame)
-        layers_frame.pack(fill=tk.X, pady=(0, 5))
-        
-        ttk.Label(layers_frame, text="GPU Layers:").pack(side=tk.LEFT)
-        self.layers_scale = ttk.Scale(layers_frame, from_=0, to=50, 
-                                     variable=self.rtx_gpu_layers_var, 
-                                     orient='horizontal', length=200,
-                                     command=self.on_gpu_layers_change)
-        self.layers_scale.pack(side=tk.LEFT, padx=(10, 10))
-        self.layers_label = ttk.Label(layers_frame, text=f"{self.rtx_gpu_layers_var.get()}/50")
-        self.layers_label.pack(side=tk.LEFT)
-        
-        # Batch Size
-        batch_frame = ttk.Frame(self.rtx_settings_frame)
-        batch_frame.pack(fill=tk.X, pady=(0, 5))
-        
-        ttk.Label(batch_frame, text="Batch Size:").pack(side=tk.LEFT)
-        batch_combo = ttk.Combobox(batch_frame, textvariable=self.rtx_batch_size_var,
-                                  values=['128', '256', '512', '1024'], state='readonly', width=10)
-        batch_combo.pack(side=tk.LEFT, padx=(10, 0))
-        
-        # VRAM Limit
-        vram_frame = ttk.Frame(self.rtx_settings_frame)
-        vram_frame.pack(fill=tk.X, pady=(0, 5))
-        
-        ttk.Label(vram_frame, text="Max VRAM (GB):").pack(side=tk.LEFT)
-        vram_spin = ttk.Spinbox(vram_frame, from_=4.0, to=24.0, increment=1.0,
-                               textvariable=self.rtx_max_vram_var, width=8, format="%.1f")
-        vram_spin.pack(side=tk.LEFT, padx=(10, 0))
-        
-        # Recommendations
-        if self.gpu_info['gpu_memory'] > 0:
-            rec_frame = ttk.Frame(self.rtx_settings_frame)
-            rec_frame.pack(fill=tk.X, pady=(10, 0))
+        # Model-specific GPU information
+        model_type = self.config.get('model_type', 'ollama')
+        if model_type == 'ollama':
+            ttk.Label(ollama_gpu_frame, text="🚀 Ollama GPU Acceleration:", 
+                     font=('Arial', 10, 'bold'), foreground='green').pack(anchor=tk.W)
             
-            ttk.Button(rec_frame, text="Apply Recommended Settings", 
-                      command=self.apply_gpu_recommendations).pack(side=tk.LEFT)
+            ttk.Label(ollama_gpu_frame, text="✅ Automatic GPU detection and optimization", 
+                     font=('Arial', 9), foreground='blue').pack(anchor=tk.W, padx=(20, 0))
             
-            rec_text = f"Recommended: {self.gpu_info['recommended_layers']} layers, {self.gpu_info['recommended_batch']} batch, {self.gpu_info['recommended_vram']:.1f}GB"
-            ttk.Label(rec_frame, text=rec_text, font=('Arial', 8), 
-                     foreground='blue').pack(side=tk.LEFT, padx=(10, 0))
+            ttk.Label(ollama_gpu_frame, text="✅ CUDA acceleration for NVIDIA GPUs", 
+                     font=('Arial', 9), foreground='blue').pack(anchor=tk.W, padx=(20, 0))
+            
+            # Show current model memory usage estimate
+            current_model = self.config.get('ollama_model', 'llava:13b')
+            if '13b' in current_model:
+                model_size = "~8GB VRAM"
+            elif '7b' in current_model:
+                model_size = "~4GB VRAM"
+            else:
+                model_size = "Variable"
+                
+            ttk.Label(ollama_gpu_frame, text=f"📊 Current model ({current_model}): {model_size}", 
+                     font=('Arial', 9), foreground='gray').pack(anchor=tk.W, padx=(20, 0))
+            
+            # Performance tips
+            ttk.Label(ollama_gpu_frame, text="💡 Performance Tips:", 
+                     font=('Arial', 9, 'bold'), foreground='orange').pack(anchor=tk.W, pady=(10, 0))
+            
+            ttk.Label(ollama_gpu_frame, text="   • Close other GPU-intensive applications for best performance", 
+                     font=('Arial', 8), foreground='gray').pack(anchor=tk.W)
+            
+            ttk.Label(ollama_gpu_frame, text="   • 13B models provide better quality but use more VRAM", 
+                     font=('Arial', 8), foreground='gray').pack(anchor=tk.W)
+            
+            ttk.Label(ollama_gpu_frame, text="   • GPU acceleration is managed automatically by Ollama", 
+                     font=('Arial', 8), foreground='gray').pack(anchor=tk.W)
+        else:
+            # Show info for cloud models
+            ttk.Label(ollama_gpu_frame, text="☁️ Cloud Model Selected:", 
+                     font=('Arial', 10, 'bold'), foreground='blue').pack(anchor=tk.W)
+            
+            ttk.Label(ollama_gpu_frame, text="✅ No local GPU/VRAM usage", 
+                     font=('Arial', 9), foreground='blue').pack(anchor=tk.W, padx=(20, 0))
+            
+            ttk.Label(ollama_gpu_frame, text="✅ Processing handled by Google's servers", 
+                     font=('Arial', 9), foreground='blue').pack(anchor=tk.W, padx=(20, 0))
         
         # 4. Quality Assessment Section
         quality_frame = ttk.LabelFrame(scrollable_frame, text="Quality Assessment", padding="10")
         quality_frame.pack(fill=tk.X, pady=(0, 10))
         
+        # IQA Model selection with explanations
         iqa_frame = ttk.Frame(quality_frame)
         iqa_frame.pack(fill=tk.X, pady=(0, 5))
         
-        ttk.Label(iqa_frame, text="IQA Model:").pack(side=tk.LEFT)
+        ttk.Label(iqa_frame, text="Image Quality Model:").pack(side=tk.LEFT)
+        
+        # Create model options with descriptions
+        iqa_options = [
+            ('brisque', 'BRISQUE - Fast, general purpose (Recommended)'),
+            ('niqe', 'NIQE - Natural scenes, good for photography'),
+            ('musiq', 'MUSIQ - Aesthetic quality, slower but comprehensive'),
+            ('topiq', 'TOPIQ - Advanced transformer model, very slow')
+        ]
+        
         iqa_combo = ttk.Combobox(iqa_frame, textvariable=self.iqa_model_var,
-                                values=['brisque', 'niqe', 'musiq', 'topiq'],
-                                state='readonly', width=15)
-        iqa_combo.pack(side=tk.LEFT, padx=(10, 20))
+                                values=[desc for _, desc in iqa_options],
+                                state='readonly', width=40)
+        iqa_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Set current selection and store mapping
+        current_iqa = self.config.get('iqa_model', 'brisque')
+        for key, desc in iqa_options:
+            if key == current_iqa:
+                iqa_combo.set(desc)
+                break
+        self.iqa_mapping = {desc: key for key, desc in iqa_options}
+        
+        # IQA explanation
+        ttk.Label(quality_frame, text="🔍 Quality models filter images before AI analysis. BRISQUE is fastest and works well for most images.", 
+                 font=('Arial', 9), foreground='blue').pack(anchor=tk.W, pady=(5, 10))
         
         threshold_frame = ttk.Frame(quality_frame)
         threshold_frame.pack(fill=tk.X)
         
         ttk.Label(threshold_frame, text="Quality Threshold:").pack(side=tk.LEFT)
-        threshold_spin = ttk.Spinbox(threshold_frame, from_=0.05, to=0.50, increment=0.05,
+        threshold_spin = ttk.Spinbox(threshold_frame, from_=0.05, to=1.00, increment=0.05,
                                     textvariable=self.quality_threshold_var,
                                     width=10, format="%.2f")
         threshold_spin.pack(side=tk.LEFT, padx=(10, 10))
         
-        ttk.Label(threshold_frame, text="(top % of images to process)", 
+        ttk.Label(threshold_frame, text="(top % of images to process - 1.00 = analyze all images)", 
                  font=('Arial', 9), foreground='gray').pack(side=tk.LEFT)
         
         # 5. Processing Options Section
@@ -390,10 +537,46 @@ class SettingsDialog:
         ttk.Label(processing_frame, text="   ↳ IPTC metadata embedded directly in image files for maximum website compatibility", 
                  font=('Arial', 9), foreground='gray').pack(anchor=tk.W)
         
-        ttk.Checkbutton(processing_frame, text="Generate curatorial descriptions (requires API key)", 
+        ttk.Checkbutton(processing_frame, text="Generate curatorial descriptions from AI perspective", 
                        variable=self.generate_curator_var).pack(anchor=tk.W, pady=(10, 2))
-        ttk.Label(processing_frame, text="   ↳ Adds detailed artistic analysis and critique", 
+        ttk.Label(processing_frame, text="   ↳ Adds detailed artistic analysis and critique (works with Ollama locally)", 
                  font=('Arial', 9), foreground='gray').pack(anchor=tk.W)
+        
+        # Description threshold setting
+        desc_threshold_frame = ttk.Frame(processing_frame)
+        desc_threshold_frame.pack(fill=tk.X, padx=(20, 0), pady=(5, 0))
+        
+        ttk.Label(desc_threshold_frame, text="Description rating threshold:").pack(side=tk.LEFT)
+        
+        desc_threshold_combo = ttk.Combobox(desc_threshold_frame, 
+                                           textvariable=getattr(self, 'description_threshold_var', tk.StringVar(value="4 Stars")),
+                                           values=["3+ Stars", "4+ Stars", "5 Stars Only", "All Images"],
+                                           state='readonly', width=12)
+        desc_threshold_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Store the variable if it doesn't exist
+        if not hasattr(self, 'description_threshold_var'):
+            self.description_threshold_var = tk.StringVar(value="4+ Stars")
+            desc_threshold_combo.config(textvariable=self.description_threshold_var)
+        
+        ttk.Label(desc_threshold_frame, text="(only generate descriptions for images with this rating or higher)", 
+                 font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=(10, 0))
+        
+        # GPU Load Profile setting
+        gpu_load_frame = ttk.Frame(processing_frame)
+        gpu_load_frame.pack(fill=tk.X, padx=(0, 0), pady=(10, 0))
+        
+        ttk.Label(gpu_load_frame, text="GPU Load Profile:").pack(side=tk.LEFT)
+        
+        gpu_load_combo = ttk.Combobox(gpu_load_frame, 
+                                     textvariable=self.gpu_load_profile_var,
+                                     values=["🔥 Hurt My GPU (Maximum Speed)", "⚡ Normal Demand (Balanced)", "🌿 Light Demand (Background Safe)"],
+                                     state='readonly', width=35)
+        gpu_load_combo.pack(side=tk.LEFT, padx=(10, 0))
+        gpu_load_combo.bind("<<ComboboxSelected>>", self.on_gpu_load_change)
+        
+        ttk.Label(gpu_load_frame, text="(adjusts timeouts and processing delays)", 
+                 font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=(10, 0))
         
         # 6. Analysis Persona Selection
         persona_frame = ttk.LabelFrame(scrollable_frame, text="Analysis Persona", padding="10")
@@ -478,47 +661,39 @@ class SettingsDialog:
         self.rtx_max_vram_var.set(self.gpu_info['recommended_vram'])
         self.on_gpu_layers_change(self.gpu_info['recommended_layers'])
     
-    def show_model_download(self):
-        """Show model download options"""
-        download_dialog = tk.Toplevel(self.dialog)
-        download_dialog.title("Download Local Models")
-        download_dialog.geometry("500x400")
-        download_dialog.transient(self.dialog)
-        download_dialog.grab_set()
-        
-        main_frame = ttk.Frame(download_dialog, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        ttk.Label(main_frame, text="Available Local Models", 
-                 font=('Arial', 14, 'bold')).pack(pady=(0, 20))
-        
-        # BakLLaVA Models
-        bakllava_frame = ttk.LabelFrame(main_frame, text="BakLLaVA Models", padding="10")
-        bakllava_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        models = [
-            ("BakLLaVA-1-Q4_K_M.gguf", "4-bit quantized", "~4GB", "Balanced speed/quality"),
-            ("BakLLaVA-1-Q8_0.gguf", "8-bit quantized", "~7GB", "Higher quality"),
-            ("BakLLaVA-1-F16.gguf", "Full precision", "~13GB", "Maximum quality")
-        ]
-        
-        for model_name, quant, size, desc in models:
-            model_frame = ttk.Frame(bakllava_frame)
-            model_frame.pack(fill=tk.X, pady=2)
-            
-            ttk.Label(model_frame, text=f"• {model_name}", font=('Arial', 9, 'bold')).pack(anchor=tk.W)
-            ttk.Label(model_frame, text=f"  {quant} | {size} | {desc}", 
-                     font=('Arial', 8), foreground='gray').pack(anchor=tk.W)
-            
-            ttk.Button(model_frame, text="Download", 
-                      command=lambda m=model_name: self.download_model(m)).pack(anchor=tk.E)
-        
-        ttk.Button(main_frame, text="Close", 
-                  command=download_dialog.destroy).pack(pady=(20, 0))
+    def on_gpu_load_change(self, event=None):
+        """Handle GPU load profile change"""
+        # Save configuration immediately when GPU load profile changes
+        config = self.get_config()
+        self.config_manager.save_config(config)
+        self.config = config
+        self.on_config_change(config)
     
-    def download_model(self, model_name):
-        """Download a specific model"""
-        messagebox.showinfo("Download", f"Model download for {model_name} would be implemented here.\n\nThis will integrate with the existing download scripts.")
+    
+    def test_ollama_connection(self):
+        """Test connection to Ollama server"""
+        try:
+            import requests
+            url = self.ollama_url_var.get()
+            response = requests.get(f"{url}/api/tags", timeout=5)
+            
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                model_names = [m['name'] for m in models]
+                
+                if model_names:
+                    self.ollama_status_label.config(text="✅ Connected successfully", foreground='green')
+                    messagebox.showinfo("Connection Test", f"Successfully connected to Ollama!\n\nAvailable models: {', '.join(model_names[:5])}")
+                else:
+                    self.ollama_status_label.config(text="⚠️ Connected but no models", foreground='orange')
+                    messagebox.showwarning("Connection Test", "Connected to Ollama but no models are installed.")
+            else:
+                self.ollama_status_label.config(text="❌ Connection failed", foreground='red')
+                messagebox.showerror("Connection Test", f"Failed to connect to Ollama (HTTP {response.status_code})")
+                
+        except Exception as e:
+            self.ollama_status_label.config(text="❌ Connection failed", foreground='red')
+            messagebox.showerror("Connection Test", f"Failed to connect to Ollama:\n{str(e)}")
     
     def get_config(self):
         """Get current configuration from UI"""
@@ -526,21 +701,25 @@ class SettingsDialog:
         persona_display = self.persona_profile_var.get()
         persona_key = getattr(self, 'persona_mapping', {}).get(persona_display, 'professional_art_critic')
         
+        # Convert IQA display name back to key
+        iqa_display = self.iqa_model_var.get()
+        iqa_key = getattr(self, 'iqa_mapping', {}).get(iqa_display, 'brisque')
+        
         return {
             "model_type": self.model_type_var.get(),
             "google_api_key": self.api_key_var.get(),
             "quality_threshold": self.quality_threshold_var.get(),
-            "iqa_model": self.iqa_model_var.get(),
+            "iqa_model": iqa_key,
             "use_exif": self.use_exif_var.get(),
             "generate_curator": self.generate_curator_var.get(),
             "persona_profile": persona_key,
-            "enable_rtx": self.enable_rtx_var.get(),
-            "rtx_gpu_layers": self.rtx_gpu_layers_var.get(),
-            "rtx_batch_size": self.rtx_batch_size_var.get(),
-            "rtx_max_vram": self.rtx_max_vram_var.get(),
-            "gemini_model": "gemini-2.0-flash-exp",
-            "ollama_url": "http://localhost:11434",
-            "ollama_model": "llava:13b"
+            "gemini_model": "gemini-2.0-flash",
+            # Ollama configuration
+            "ollama_url": self.ollama_url_var.get(),
+            "ollama_model": self.ollama_model_var.get(),
+            "ollama_timeout": self.ollama_timeout_var.get(),
+            "description_threshold": self.description_threshold_var.get(),
+            "gpu_load_profile": self.gpu_load_profile_var.get()
         }
     
     def on_ok(self):

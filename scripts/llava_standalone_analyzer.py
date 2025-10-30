@@ -89,11 +89,31 @@ class LLaVAStandaloneAnalyzer:
             else:
                 logger.info("Initializing LLaVA in CPU-only mode")
 
-            self.model = OpenWeightsModel(
-                name="LLaVA-1.5-7B",
-                system_prompt="You are an expert image analyst.",
-                loader_kwargs=loader_kwargs
-            )
+            # Use direct llama-cpp-python with vision support
+            try:
+                from llama_cpp import Llama
+                
+                # Initialize with vision model
+                self.llama_model = Llama(
+                    model_path=self.model_path,
+                    chat_format="llava-1-5",  # Specify LLaVA chat format
+                    clip_model_path=self.clip_path,  # Vision model
+                    n_ctx=2048,
+                    n_gpu_layers=gpu_layers,
+                    n_threads=8,
+                    verbose=False,
+                    n_batch=batch_size,
+                    f16_kv=use_gpu
+                )
+                
+                logger.info(f"LLaVA 7B model loaded with vision support")
+                logger.info(f"Model path: {self.model_path}")
+                logger.info(f"CLIP path: {self.clip_path}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize LLaVA: {e}")
+                self.llama_model = None
+                raise e
             self.available = True
             logger.info("LLaVA model initialized successfully")
         except Exception as e:
@@ -129,19 +149,53 @@ class LLaVAStandaloneAnalyzer:
             return {"error": "Failed to prepare image"}
             
         try:
-            response = self.model.ask(
-                prompt=prompt,
-                image_b64=img_base64,
-                temperature=0.2
+            if not hasattr(self, 'llama_model') or self.llama_model is None:
+                return {"error": "LLaVA model not properly initialized"}
+                
+            # Use direct llama-cpp vision capabilities
+            import base64
+            from io import BytesIO
+            
+            # Create the message with image
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{img_base64}"
+                            }
+                        }
+                    ]
+                }
+            ]
+            
+            # Generate response using vision capabilities
+            response = self.llama_model.create_chat_completion(
+                messages=messages,
+                temperature=0.2,
+                max_tokens=500
             )
             
-            if response:
-                # Clean up the response
-                response = response.strip().replace('```json', '').replace('```', '')
-                return json.loads(response)
+            if response and 'choices' in response and response['choices']:
+                response_text = response['choices'][0]['message']['content']
+                
+                if response_text and response_text.strip():
+                    # Clean up the response
+                    cleaned_response = response_text.strip().replace('```json', '').replace('```', '')
+                    try:
+                        parsed_response = json.loads(cleaned_response)
+                        return parsed_response
+                    except json.JSONDecodeError:
+                        # If JSON parsing fails, return the text as an error with context
+                        return {"error": f"Invalid JSON response", "raw_response": cleaned_response[:200]}
+                else:
+                    return {"error": "Model returned empty response"}
             return None
 
         except Exception as e:
             logger.error(f"Error during LLaVA analysis: {e}")
-            return None
+            return {"error": f"Analysis failed: {str(e)}", "raw_response": ""}
 

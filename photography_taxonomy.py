@@ -109,26 +109,24 @@ PHOTOGRAPHER_PERSONAS = {
 
 def get_analysis_prompt(profile_key='professional_art_critic', include_critique=False):
     """
-    Generate analysis prompt based on photographer persona.
+    Generate analysis prompt based on photographer persona with hierarchical keywords.
+    Uses OBtagger's proven approach for reliable LLaVA responses.
     
     Args:
         profile_key (str): Key for photographer persona
         include_critique (bool): Whether to include critique in JSON template
         
     Returns:
-        str: Complete analysis prompt with taxonomy and JSON template
+        str: Complete analysis prompt with hierarchical taxonomy and JSON template
     """
     profile = PHOTOGRAPHER_PERSONAS.get(profile_key, PHOTOGRAPHER_PERSONAS['professional_art_critic'])
     
-    # Build criteria text
-    criteria_text = "\\n".join([f"{i+1}. {criterion}" for i, criterion in enumerate(profile['criteria'])])
-    
-    # Build JSON template
+    # Build JSON template with hierarchical keywords
     json_template = {
-        "category": "chosen_category",
-        "subcategory": "chosen_subcategory", 
-        "tags": ["tag1", "tag2", "tag3"],
-        "score": 7
+        "category": "People",
+        "subcategory": "Portrait", 
+        "tags": "Photography > Portrait Photography > Studio, People > Adults > Professional, Style > Lighting > Studio Lighting",
+        "score": 4
     }
     
     if include_critique:
@@ -137,27 +135,22 @@ def get_analysis_prompt(profile_key='professional_art_critic', include_critique=
     import json
     json_str = json.dumps(json_template, indent=2)
     
-    prompt = f"""
-{profile['persona']}
+    # Use OBtagger's proven prompt format with hierarchical keywords
+    prompt = f'''Analyze this photograph step by step:
 
-ANALYSIS CRITERIA:
-{criteria_text}
+1. CATEGORY: Choose People, Place, or Thing
+2. SUBCATEGORY: Choose from Portrait, Landscape, Architecture, Wildlife, Product, Food, Event, etc.
+3. HIERARCHICAL KEYWORDS: Create 3-5 hierarchical keywords using " > " separators
+   - Start with broad categories (Photography, Nature, People, Architecture)
+   - Progress to specific subcategories (Portrait Photography, Wildlife, Urban Architecture)
+   - End with detailed descriptors (Studio Portrait, Birds, Modern Building)
+   - Examples: "Photography > Portrait Photography > Studio", "Nature > Wildlife > Birds"
+4. QUALITY SCORE: Rate 1-5 stars (1=poor, 3=average, 5=exceptional)
 
-CLASSIFICATION (select ONE from each category):
-CATEGORIES: {', '.join(CATEGORIES)}
-SUB_CATEGORIES: {', '.join(SUB_CATEGORIES)}
-TAGS: {', '.join(ALL_TAGS)} (select 2-4 most relevant)
-
-SCORING GUIDE (1-10 scale from {profile['name']} perspective):
-1-2: Poor (fails to meet basic standards for this evaluation type)
-3-4: Below Average (basic competence, limited value for intended purpose)
-5-6: Average (meets standard expectations for this type of image)
-7-8: Above Average (strong quality and purpose alignment)
-9-10: Exceptional (outstanding example that excels in all criteria)
-
-RESPOND WITH VALID JSON ONLY:
+Respond with valid JSON only:
 {json_str}
-"""
+
+IMPORTANT: The tags field must be a comma-separated string with hierarchical keywords using " > " separators, not an array.'''
     
     return prompt
 

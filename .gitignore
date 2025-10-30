@@ -165,3 +165,4 @@ datasets/
 # Windows specific
 ehthumbs.db
 Desktop.ini
+wsl2_ollama_models_backup.txt

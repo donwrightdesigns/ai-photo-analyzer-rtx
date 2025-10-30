@@ -1,93 +1,245 @@
-# AI Image Analyzer v4.0 - Streamlined Desktop & Lightroom Workflow
+# AI Image Analyzer v2.0 - Local AI-Powered Image Analysis
 
 ![AI Image Analyzer](logo-ai-analyzer.jpg)
 
-**A powerful, local-first, AI-powered image analysis tool for professional and enthusiast photographers, now with a completely rebuilt, simplified, and reliable Adobe Lightroom Classic integration.**
+**A powerful, local-first, AI-powered image analysis tool that automatically tags, rates, and describes your images using advanced AI models running locally on your machine.**
 
-This major update abandons the previous complex web-based plugin in favor of a robust, practical, and familiar "send-to-app" workflow, inspired by industry-standard tools like Topaz Photo AI.
+✨ **NEW in v2.0**: GPU Load Profile settings for optimized performance, enhanced Ollama integration, and streamlined desktop interface.
 
 ---
 
 ## 🎯 Key Features
 
-- **Standalone Desktop GUI**: A clean, modern interface for analyzing folders of images.
-- **New Lightroom Plugin**: A simple, reliable plugin to send images directly to the desktop app.
-- **Two Processing Modes**:
-    - **Archive Mode**: Comprehensive analysis of all images for a fully searchable archive.
-    - **Curated Mode**: Fast, quality-focused analysis of only the best images.
-- **Local-First Processing**: Your images are processed on your machine, ensuring privacy and security.
-- **Powerful AI Models**: Supports local models like BakLLaVA for speed and Gemini for quality.
-- **RTX Acceleration**: Optimized for NVIDIA RTX GPUs for blazing-fast performance.
-- **IPTC Embedded Metadata**: Industry-standard metadata embedded directly in image files for maximum compatibility with websites and photo platforms.
+- **🖥️ Clean Desktop GUI**: Modern, user-friendly interface for analyzing folders of images
+- **🤖 Local AI Models**: Primary support for Ollama (LLaVA, Gemma) with Gemini cloud fallback
+- **⚡ GPU Load Profiles**: Choose between Maximum Speed, Balanced, or Background Safe processing
+- **🎯 Smart Quality Filtering**: Only analyze your best images using advanced quality assessment
+- **📝 Rich Metadata**: Automatic tagging, rating, and curatorial descriptions
+- **💾 EXIF/IPTC Embedding**: Industry-standard metadata embedded directly in image files
+- **🔒 Privacy-First**: Your images never leave your machine with local processing
+- **🚀 RTX Optimized**: Blazing-fast performance on NVIDIA RTX GPUs
 
 ---
 
-## 🚀 New Simplified Workflow
+## 🚀 Quick Start
 
-The new architecture is designed for simplicity and reliability:
+1. **Install Ollama** (recommended for local processing)
+2. **Clone and run** the AI Image Analyzer
+3. **Select your image folder** in the GUI
+4. **Choose your settings** (GPU load profile, quality threshold, etc.)
+5. **Start analysis** and let AI tag and rate your images!
 
-1.  **Select in Lightroom**: Choose images in the Library module.
-2.  **Send to Desktop App**: Use the `Plug-in Extras` menu to send images to the AI Image Analyzer desktop app.
-3.  **Analyze**: Use the full power of the desktop app to analyze your images in either Archive or Curated mode.
-4.  **Refresh in Lightroom**: Once finished, use the `Refresh Metadata` command in Lightroom to instantly see your new ratings, keywords, and descriptions embedded directly in the image files.
-
-This workflow is faster, more reliable, and more powerful than the previous web-based plugin.
+Your images will be automatically tagged with categories, keywords, quality ratings, and optional curatorial descriptions.
 
 ---
 
 ## 🛠️ Installation
 
-### 1. Install the Desktop App
+### Prerequisites
 
-- **Windows**: Download the latest release from the Releases page and run the installer.
-- **macOS/Linux**: Clone the repository and run the app from source (see below).
+- **Python 3.8+** (3.9+ recommended)
+- **NVIDIA GPU** (optional but recommended for best performance)
+- **Ollama** (for local AI models)
 
-### 2. Install the Lightroom Plugin
+### Step 1: Install Ollama
 
-1.  Open Lightroom Classic.
-2.  Go to `File` > `Plug-in Manager`.
-3.  Click `Add` and navigate to the `ai-image-analyzer-v2.lrplugin` folder in this repository.
-4.  The plugin is now installed and will appear in the `Plug-in Extras` menu.
+**Ollama provides the local AI models and is the recommended approach:**
 
----
+1. **Download Ollama**: Go to [ollama.com](https://ollama.com) and download for your platform
+2. **Install and start** Ollama (it runs as a service)
+3. **Pull a vision model**:
+   ```bash
+   ollama pull llava:13b    # Recommended - higher quality
+   # OR
+   ollama pull llava:7b     # Faster, lower VRAM usage
+   ```
 
-## 💻 Running from Source
+**Verify Ollama is running:**
+```bash
+ollama list    # Should show your downloaded models
+```
 
-If you prefer to run the desktop app from source:
+### Step 2: Install AI Image Analyzer
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/donwrightdesigns/ai-photo-analyzer-rtx.git
-    cd ai-photo-analyzer-rtx
-    ```
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/ai-image-analyzer.git
+   cd ai-image-analyzer
+   ```
 
-2.  **Install dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+2. **Install Python dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3.  **Run the main application**:
-    ```bash
-    python main.py
-    ```
+3. **Verify installation** (recommended):
+   ```bash
+   python verify_installation.py
+   ```
+
+4. **Run the application**:
+   ```bash
+   python main.py
+   # OR directly:
+   python ai_image_analyzer_gui.py
+   ```
+
+### Step 3: Configuration (Optional)
+
+- **For cloud fallback**: Add your Google Gemini API key in Settings
+- **For optimal performance**: Adjust the GPU Load Profile in Settings
+- **Quality filtering**: Set your preferred quality threshold
 
 ---
 
 ## 🤖 Supported AI Models
 
-- **BakLLaVA (Local, Recommended)**: Incredibly fast on NVIDIA RTX GPUs, ideal for large batches.
-- **Gemini (Cloud)**: High-quality analysis using Google's API, great for single images or small batches.
-- **Ollama (Local)**: Supports a wide variety of local models, good for privacy-focused users.
+### Local Models (via Ollama) - **Recommended**
+- **LLaVA 13B**: Higher quality analysis, ~7GB VRAM, slower but excellent results
+- **LLaVA 7B**: Faster analysis, ~4GB VRAM, good quality
+- **Gemma 2B/12B**: Alternative local models with different strengths
+
+### Cloud Models (Fallback)
+- **Gemini 2.0 Flash**: High-quality cloud analysis when local models aren't available
 
 ---
 
-## 📈 Project Cleanup & Refactoring
+## ⚡ GPU Load Profiles
 
-This release represents a major cleanup and refactoring of the project. The following have been **removed**:
+**NEW in v2.0** - Choose the optimal performance setting for your needs:
 
--   **Old Lightroom Plugin**: The entire `ai-image-analyzer.lrplugin` has been deleted and replaced with the much simpler `ai-image-analyzer-v2.lrplugin`.
--   **Web Interface**: The Flask-based web GUI has been removed to focus on a single, high-quality desktop application.
--   **Obsolete Scripts**: Numerous old and experimental scripts have been deleted to clean up the codebase.
--   **Outdated Documentation**: All documentation related to the old plugin and web interface has been removed.
+### 🔥 Hurt My GPU (Maximum Speed)
+- **When to use**: You want the fastest possible analysis
+- **System impact**: High GPU usage, may impact other applications
+- **Settings**: Shortest timeouts (15s min), 50ms between requests
+- **Best for**: Dedicated analysis sessions, powerful GPUs
 
-This leaves a clean, focused, and maintainable codebase centered around the desktop application and its new, streamlined Lightroom integration.
+### ⚡ Normal Demand (Balanced) - **Default**
+- **When to use**: Good balance of speed and system stability
+- **System impact**: Moderate GPU usage, shouldn't impact normal usage
+- **Settings**: Standard timeouts (30s), 100ms between requests
+- **Best for**: Most users, everyday analysis
+
+### 🌿 Light Demand (Background Safe)
+- **When to use**: Running analysis in background while using other apps
+- **System impact**: Low GPU usage, minimal impact on other applications
+- **Settings**: Extended timeouts (60s), 1000ms between requests
+- **Best for**: Background processing, shared systems, older GPUs
+
+---
+
+---
+
+## 📚 Usage
+
+### Basic Workflow
+
+1. **Launch** the application: `python ai_image_analyzer_gui.py`
+2. **Configure settings**: Click the Settings button to configure your preferences
+3. **Select folder**: Browse to your image folder
+4. **Choose options**: 
+   - Include subfolders (recommended)
+   - Set GPU load profile based on your needs
+5. **Start Analysis**: Click "Start Analysis" and watch the progress
+
+### What Gets Analyzed
+
+- **Quality Assessment**: Images are scored using advanced quality metrics
+- **AI Analysis**: Only high-quality images get full AI analysis (configurable threshold)
+- **Metadata Generation**: Categories, tags, ratings, and optional descriptions
+- **File Embedding**: Metadata is written directly into image EXIF/IPTC data
+
+### Generated Metadata
+
+- **Category**: Main subject category (Person, Animal, Landscape, etc.)
+- **Subcategory**: More specific classification
+- **Keywords/Tags**: Relevant descriptive tags
+- **Quality Rating**: 1-5 star rating based on technical and artistic merit
+- **Curatorial Description**: Optional AI-generated artistic critique (when enabled)
+
+---
+
+## 🔧 Troubleshooting
+
+### Ollama Issues
+
+**Ollama not connecting:**
+```bash
+# Check if Ollama is running
+ollama list
+
+# Restart Ollama if needed
+# Windows: Restart the Ollama service
+# macOS/Linux: killall ollama && ollama serve
+```
+
+**Model not found:**
+```bash
+# Pull the required model
+ollama pull llava:13b
+```
+
+### Performance Issues
+
+- **Slow processing**: Try the 🔥 "Hurt My GPU" load profile
+- **System laggy**: Switch to 🌿 "Light Demand" load profile
+- **Out of VRAM**: Use LLaVA 7B instead of 13B model
+- **Connection timeouts**: Increase timeout in advanced settings
+
+### General Issues
+
+- **No images found**: Check that image folder contains supported formats (JPG, PNG, TIFF, etc.)
+- **Metadata not visible**: Some applications need to refresh metadata view
+- **Permission errors**: Ensure write access to image files
+
+---
+
+## 🔍 System Requirements
+
+### Minimum Requirements
+- **OS**: Windows 10+, macOS 10.14+, or Linux
+- **Python**: 3.8+
+- **RAM**: 8GB (16GB recommended)
+- **Storage**: 2GB free space
+
+### Recommended for Best Performance
+- **GPU**: NVIDIA RTX 3060 or better with 8GB+ VRAM
+- **RAM**: 16GB+
+- **CPU**: Modern multi-core processor
+- **Storage**: SSD for faster image loading
+
+### Supported Image Formats
+- **Primary**: JPG, JPEG, PNG, TIFF, TIF
+- **RAW**: CR2, NEF, ARW, DNG (converted for analysis)
+- **Other**: WEBP, BMP
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License. See LICENSE file for details.
+
+---
+
+## 🚀 What's New in v2.0
+
+- **⚡ GPU Load Profiles**: Choose optimal performance settings for your workflow
+- **🤖 Enhanced Ollama Integration**: Seamless local AI model support with automatic configuration
+- **🖥️ Streamlined GUI**: Clean, modern desktop interface with real-time status display
+- **🔧 Smart Installation**: Verification script ensures all dependencies are correctly installed
+- **💾 Improved Metadata**: Better EXIF/IPTC embedding with curatorial descriptions
+- **🎯 Quality Filtering**: Advanced image quality assessment with multiple algorithms
+
+---
+
+## 🚀 Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+
+---
+
+## 📞 Support
+
+- **Issues**: Report bugs or request features via GitHub Issues
+- **Discussions**: Join the community discussions for tips and troubleshooting
+- **Documentation**: Check the README for the latest setup instructions

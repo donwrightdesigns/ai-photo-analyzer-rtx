@@ -1,0 +1,142 @@
+/* AI Image Analyzer Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5em;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+#controls {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#directoryInput {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 2px dashed #3498db;
+    border-radius: 5px;
+    background-color: #ecf0f1;
+    width: 100%;
+    max-width: 400px;
+}
+
+#startButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#startButton:hover {
+    background-color: #2980b9;
+}
+
+#startButton:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+#progress {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-top: 20px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #ecf0f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #27ae60;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.status-text {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.current-image {
+    font-style: italic;
+    color: #7f8c8d;
+}
+
+.results-container {
+    margin-top: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.export-buttons {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.export-btn {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 0 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.export-btn:hover {
+    background-color: #c0392b;
+}
+
+.model-status {
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+.model-status.connected {
+    background-color: #d5f4e6;
+    color: #27ae60;
+    border: 1px solid #27ae60;
+}
+
+.model-status.disconnected {
+    background-color: #fadbd8;
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+}
+
+.hidden {
+    display: none;
+}

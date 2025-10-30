@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Analyzer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <header class="row bg-primary text-white py-3 mb-4">
+            <div class="col">
+                <h1 class="h2 mb-0"><i class="fas fa-images me-2"></i>AI Image Analyzer</h1>
+                <p class="mb-0">Powered by LLaVA AI Model</p>
+            </div>
+        </header>
+
+        <main class="row">
+            <!-- Control Panel -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0"><i class="fas fa-cog me-2"></i>Control Panel</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Model Status -->
+                        <div class="mb-3">
+                            <h6>Model Status</h6>
+                            <div id="model-status" class="alert alert-info">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Checking model availability...
+                            </div>
+                        </div>
+
+                        <!-- Model Selection -->
+                        <div class="mb-3">
+                            <h6>Model Selection</h6>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="model-local" name="model-type" value="local" checked>
+                                <label class="form-check-label ms-2" for="model-local">
+                                    <i class="fas fa-desktop me-1"></i>Local Model (Ollama)
+                                </label>
+                            </div>
+                            <div class="mb-2">
+                                <input type="radio" class="form-check-input" id="model-cloud" name="model-type" value="cloud">
+                                <label class="form-check-label ms-2" for="model-cloud">
+                                    <i class="fas fa-cloud me-1"></i>Cloud Model (Google Gemini)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Local Model Settings -->
+                        <div id="local-settings" class="mb-3">
+                            <label for="local-model-select" class="form-label">Local Model</label>
+                            <select class="form-select" id="local-model-select">
+                                <option value="llava:13b">LLaVA 13B</option>
+                                <option value="llava:7b">LLaVA 7B</option>
+                                <option value="llava:34b">LLaVA 34B</option>
+                            </select>
+                            <button class="btn btn-outline-primary btn-sm mt-2" id="download-model-btn">
+                                <i class="fas fa-download me-1"></i>Download Model
+                            </button>
+                        </div>
+
+                        <!-- Cloud Model Settings -->
+                        <div id="cloud-settings" class="mb-3" style="display: none;">
+                            <label for="api-key" class="form-label">Google API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="api-key" 
+                                       placeholder="Enter your Google API key">
+                                <button class="btn btn-outline-secondary" type="button" id="toggle-api-key">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">
+                                Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>
+                            </small>
+                        </div>
+
+                        <!-- Directory Selection -->
+                        <div class="mb-3">
+                            <label for="directory-path" class="form-label">Image Directory</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="directory-path" 
+                                       placeholder="e.g., C:\Photos\MyImages">
+                                <button class="btn btn-outline-secondary" type="button" id="browse-btn">
+                                    <i class="fas fa-folder-open"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="write-exif" checked>
+                                <label class="form-check-label" for="write-exif">
+                                    Write analysis to EXIF metadata
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            <button id="start-btn" class="btn btn-success" disabled>
+                                <i class="fas fa-play me-2"></i>Start Analysis
+                            </button>
+                            <button id="stop-btn" class="btn btn-danger" disabled>
+                                <i class="fas fa-stop me-2"></i>Stop Analysis
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Card -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0"><i class="fas fa-chart-line me-2"></i>Progress</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="progress-info">
+                            <p class="mb-2">Ready to start...</p>
+                        </div>
+                        <div class="progress mb-2">
+                            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <small id="current-image" class="text-muted"></small>
+                    </div>
+                </div>
+
+                <!-- Export Options -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0"><i class="fas fa-download me-2"></i>Export Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button id="export-json" class="btn btn-outline-primary" disabled>
+                                <i class="fas fa-file-code me-2"></i>Export as JSON
+                            </button>
+                            <button id="export-csv" class="btn btn-outline-primary" disabled>
+                                <i class="fas fa-file-csv me-2"></i>Export as CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>Analysis Results</h5>
+                        <button id="clear-results" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-trash me-1"></i>Clear
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="results-container" class="results-container">
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-image fa-3x mb-3"></i>
+                                <p>Analysis results will appear here...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Result Template -->
+    <template id="result-template">
+        <div class="result-item">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="image-preview">
+                        <i class="fas fa-image fa-2x text-muted"></i>
+                        <small class="d-block text-truncate mt-1" data-filename></small>
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <div class="result-details">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <span class="badge bg-primary category-badge" data-category></span>
+                                <span class="badge bg-secondary subcategory-badge ms-1" data-subcategory></span>
+                                <div class="mt-2">
+                                    <div class="stars" data-score></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="tags-container" data-tags></div>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <p class="critique mb-1" data-critique></p>
+                            <small class="text-muted">
+                                <i class="fas fa-check-circle text-success exif-status" data-exif></i>
+                                EXIF metadata updated
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Initialize with session ID from Flask
+        const SESSION_ID = '{{ session_id }}';
+    </script>
+</body>
+</html>

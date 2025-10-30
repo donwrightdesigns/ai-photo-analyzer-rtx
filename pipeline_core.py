@@ -31,8 +31,8 @@ import time
 import math
 from typing import List, Dict, Optional, Tuple, Any
 
-# Import our standalone analyzers and unified taxonomy
-from scripts.llava_standalone_analyzer import LLaVAStandaloneAnalyzer
+# Import our analyzers and unified taxonomy
+from scripts.ollama_direct_analyzer import OllamaDirectAnalyzer
 from photography_taxonomy import get_analysis_prompt, PHOTOGRAPHER_PERSONAS
 
 
@@ -172,16 +172,21 @@ class ImageCurationEngine:
         image_files = []
         
         # Discover all supported image files (recursive or not based on parameter)
+        image_files_set = set()  # Use set to automatically deduplicate
+        
         if recursive:
             # Recursive search through all subdirectories (default behavior)
             for ext in supported_extensions:
-                image_files.extend(Path(image_directory).rglob(f'*{ext}'))
-                image_files.extend(Path(image_directory).rglob(f'*{ext.upper()}'))
+                image_files_set.update(Path(image_directory).rglob(f'*{ext}'))
+                image_files_set.update(Path(image_directory).rglob(f'*{ext.upper()}'))
         else:
             # Non-recursive: only search in the immediate directory
             for ext in supported_extensions:
-                image_files.extend(Path(image_directory).glob(f'*{ext}'))
-                image_files.extend(Path(image_directory).glob(f'*{ext.upper()}'))
+                image_files_set.update(Path(image_directory).glob(f'*{ext}'))
+                image_files_set.update(Path(image_directory).glob(f'*{ext.upper()}'))
+        
+        # Convert set back to list
+        image_files = list(image_files_set)
         
         if not image_files:
             if status_queue:
@@ -242,15 +247,15 @@ class ContentGenerationEngine:
         """
         self.config = model_config
         self.gemini_model = None
-        self.llava_13b_model = None  # Ollama-based LLaVA 13B (legacy)
-        self.llava_standalone_analyzer = None  # PyLLMCore-based LLaVA (new)
+        self.ollama_analyzer = None  # Direct Ollama HTTP analyzer
         self.ollama_url = model_config.get('ollama_url', 'http://localhost:11434')
+        self.ollama_model = model_config.get('ollama_model', 'llava:13b')
         self._init_models()
     
     def _init_models(self):
-        """Initialize available models: LLaVA 13B standalone and Gemini."""
+        """Initialize available models: Direct Ollama and Gemini fallback."""
         self._init_gemini()  # Cloud fallback
-        self._init_llava_standalone()  # New: PyLLMCore-based LLaVA
+        self._init_ollama_direct()  # Direct Ollama HTTP analyzer
 
     def _init_gemini(self):
         """Initialize Gemini model as fallback option."""
@@ -262,34 +267,31 @@ class ContentGenerationEngine:
             except Exception as e:
                 print(f"[ERROR] Failed to initialize Gemini model: {e}")
 
-    def _init_llava_standalone(self):
-        """Initialize PyLLMCore-based LLaVA 13B analyzer."""
+    def _init_ollama_direct(self):
+        """Initialize direct Ollama HTTP analyzer."""
         try:
-            # Get models directory and GPU config from settings
-            models_dir = self.config.get('llava_models_dir', 'J:/models')
-            
-            # Build GPU configuration
-            gpu_config = {
-                'enable_rtx': self.config.get('enable_rtx', torch.cuda.is_available()),
-                'rtx_gpu_layers': self.config.get('rtx_gpu_layers', 35),
-                'rtx_batch_size': str(self.config.get('rtx_batch_size', 512))
-            }
-            
-            self.llava_standalone_analyzer = LLaVAStandaloneAnalyzer(
-                models_dir=models_dir,
-                gpu_config=gpu_config
+            gpu_load_profile = self.config.get('gpu_load_profile', '⚡ Normal Demand (Balanced)')
+            self.ollama_analyzer = OllamaDirectAnalyzer(
+                base_url=self.ollama_url,
+                model=self.ollama_model,
+                timeout=self.config.get('ollama_timeout', 30),
+                gpu_load_profile=gpu_load_profile
             )
             
-            if self.llava_standalone_analyzer.available:
-                device_info = "GPU" if gpu_config['enable_rtx'] else "CPU"
-                print(f"[INFO] LLaVA 13B Standalone analyzer initialized on {device_info}")
+            if self.ollama_analyzer.available:
+                print(f"[INFO] Ollama direct analyzer initialized: {self.ollama_model} at {self.ollama_url}")
+                
+                # Get available models for info
+                available_models = self.ollama_analyzer.get_available_models()
+                model_names = [m['name'] for m in available_models]
+                print(f"[INFO] Available Ollama models: {model_names}")
             else:
-                print("[ERROR] LLaVA 13B Standalone analyzer failed to initialize")
-                self.llava_standalone_analyzer = None
+                print(f"[ERROR] Ollama direct analyzer failed to initialize")
+                self.ollama_analyzer = None
                 
         except Exception as e:
-            print(f"[ERROR] Failed to initialize LLaVA Standalone: {e}")
-            self.llava_standalone_analyzer = None
+            print(f"[ERROR] Failed to initialize Ollama direct analyzer: {e}")
+            self.ollama_analyzer = None
 
     def _init_gemma_12b(self):
         """Initialize local Gemma 12B model via Ollama."""
@@ -375,11 +377,13 @@ class ContentGenerationEngine:
             "category": "chosen_category",
             "subcategory": "chosen_subcategory", 
             "tags": ["tag1", "tag2", "tag3"],
-            "score": 7
+            "score": 4
         }
         
+        critique_prompt = ""
         if self.config.get('enable_gallery_critique', False):
-            json_template["critique"] = f"Professional critique from {profile['name']} perspective."
+            json_template["critique"] = f"Professional description from {profile['name']} perspective in 1-2 sentences covering style, mood, and subject matter."
+            critique_prompt = f"\n\nADDITIONAL REQUIREMENT:\nDescribe this image from the perspective of {profile['name']} in 1-2 sentences. Include both the style/mood/emotional evocation AND the actual subject matter and setting. Put this description in the 'critique' field."
         
         json_str = json.dumps(json_template, indent=2)
         
@@ -422,12 +426,13 @@ class ContentGenerationEngine:
         SUB_CATEGORIES: {', '.join(DEFAULT_SUB_CATEGORIES)}
         TAGS: {', '.join(DEFAULT_TAGS)} (select 2-4 most relevant)
         
-        SCORING GUIDE (1-10 scale from {profile['name']} perspective):
-        1-2: Poor (fails to meet basic standards for this evaluation type)
-        3-4: Below Average (basic competence, limited value for intended purpose)
-        5-6: Average (meets standard expectations for this type of image)
-        7-8: Above Average (strong quality and purpose alignment)
-        9-10: Exceptional (outstanding example that excels in all criteria)
+        SCORING GUIDE (1-5 STAR RATING - Lightroom Compatible):
+        ⭐ 1 Star: Poor (fails to meet basic standards, consider deleting)
+        ⭐⭐ 2 Stars: Below Average (basic competence, archive only)
+        ⭐⭐⭐ 3 Stars: Average (meets standard expectations, good for archive)
+        ⭐⭐⭐⭐ 4 Stars: Above Average (strong quality, good for sharing/portfolio)
+        ⭐⭐⭐⭐⭐ 5 Stars: Exceptional (gallery-worthy, outstanding example)
+        {critique_prompt}
         
         RESPOND WITH VALID JSON ONLY:
         {json_str}
@@ -467,69 +472,115 @@ class ContentGenerationEngine:
         
         return resized_img
     
-    def analyze_image_with_llava_standalone(self, image_path: str) -> Optional[Dict[str, Any]]:
-        """Analyze image using standalone LLaVA 13B analyzer."""
-        if not self.llava_standalone_analyzer or not self.llava_standalone_analyzer.available:
+    def analyze_image_with_ollama_direct(self, image_path: str) -> Optional[Dict[str, Any]]:
+        """Analyze image using direct Ollama HTTP analyzer."""
+        if not self.ollama_analyzer or not self.ollama_analyzer.available:
             return None
             
         try:
-            # Use the photography_taxonomy prompt
-            persona_key = self.config.get('persona_key', 'professional_art_critic')
-            prompt = get_analysis_prompt(persona_key)
+            # Use the photography_taxonomy prompt with hierarchical keywords
+            persona_key = self.config.get('persona_profile', 'professional_art_critic')
+            prompt = self.get_analysis_prompt(persona_key)
             
-            # Use the standalone analyzer directly
-            result = self.llava_standalone_analyzer.analyze_image(image_path, prompt)
+            # Use the direct Ollama analyzer
+            result = self.ollama_analyzer.analyze_image(image_path, prompt)
             
-            # The standalone analyzer returns the parsed JSON directly, or None/error dict
+            # The analyzer returns parsed JSON directly, or error dict
             if result and not result.get('error'):
                 # Validate required keys
                 required_keys = ["category", "subcategory", "tags", "score"]
+                if self.config.get('enable_gallery_critique', False):
+                    required_keys.append("critique")
+                
                 if all(k in result for k in required_keys):
+                    # Ensure score is valid
+                    score = result.get('score')
+                    if score is None or not isinstance(score, (int, float)):
+                        result['score'] = 3
+                    
+                    # Parse hierarchical tags if they're in string format
+                    tags = result.get('tags')
+                    if isinstance(tags, str):
+                        # Convert comma-separated hierarchical tags to list
+                        result['tags'] = [tag.strip() for tag in tags.split(',')]
+                    
                     return result
                 else:
-                    print(f"LLaVA Standalone returned incomplete data: {result}")
+                    print(f"Ollama Direct returned incomplete data: {result}")
             elif result and result.get('error'):
-                print(f"LLaVA Standalone error: {result.get('error')}")
+                print(f"Ollama Direct error: {result.get('error')}")
                     
         except Exception as e:
-            print(f"Error analyzing image with LLaVA Standalone: {e}")
+            print(f"Error analyzing image with Ollama Direct: {e}")
         
         return None
 
-    def analyze_image_with_gemini(self, image_path: str) -> Optional[Dict[str, Any]]:
-        """Analyze image using Gemini model."""
+    def analyze_image_with_gemini(self, image_path: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
+        """Analyze image using Gemini model with rate limit handling."""
         if not self.gemini_model:
             return None
             
-        try:
-            img = self._resize_image_for_analysis(image_path)
-            prompt = self.get_analysis_prompt()
-            
-            response = self.gemini_model.generate_content(
-                [prompt, img],
-                generation_config=genai.GenerationConfig(
-                    temperature=0.3,
-                    top_p=0.8,
-                    max_output_tokens=500
-                )
-            )
-            
-            # Clean and parse response
-            response_text = response.text.replace('```json', '').replace('```', '').strip()
-            
+        for attempt in range(max_retries):
             try:
-                data = json.loads(response_text)
-                required_keys = ["category", "subcategory", "tags", "score"]
-                if self.config.get('enable_gallery_critique', False):
-                    required_keys.append("critique")
-                    
-                if all(k in data for k in required_keys):
-                    return data
-            except json.JSONDecodeError:
-                pass
+                img = self._resize_image_for_analysis(image_path)
+                prompt = self.get_analysis_prompt()
                 
-        except Exception as e:
-            print(f"Error analyzing image with Gemini: {e}")
+                response = self.gemini_model.generate_content(
+                    [prompt, img],
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.3,
+                        top_p=0.8,
+                        max_output_tokens=500
+                    )
+                )
+                
+                # Clean and parse response
+                response_text = response.text.replace('```json', '').replace('```', '').strip()
+                
+                try:
+                    data = json.loads(response_text)
+                    required_keys = ["category", "subcategory", "tags", "score"]
+                    if self.config.get('enable_gallery_critique', False):
+                        required_keys.append("critique")
+                        
+                    if all(k in data for k in required_keys):
+                        return data
+                except json.JSONDecodeError:
+                    pass
+                    
+            except Exception as e:
+                error_str = str(e)
+                
+                # Handle rate limit errors specifically
+                if "429" in error_str or "quota" in error_str.lower() or "rate limit" in error_str.lower():
+                    if "retry_delay" in error_str:
+                        # Extract retry delay from error message
+                        import re
+                        delay_match = re.search(r'(\d+\.?\d*)s', error_str)
+                        if delay_match:
+                            retry_delay = float(delay_match.group(1))
+                        else:
+                            retry_delay = 60  # Default 1 minute
+                    else:
+                        retry_delay = 60  # Default 1 minute for rate limits
+                    
+                    if attempt < max_retries - 1:
+                        print(f"[WARNING] Gemini rate limit hit. Waiting {retry_delay:.1f}s before retry {attempt + 2}/{max_retries}...")
+                        import time
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        print(f"[ERROR] Gemini rate limit exceeded after {max_retries} attempts: {error_str}")
+                        print(f"[INFO] Free tier limit: 10 requests/minute. Consider upgrading or using local models.")
+                        return None
+                else:
+                    print(f"Error analyzing image with Gemini: {e}")
+                    if attempt < max_retries - 1:
+                        print(f"[INFO] Retrying... ({attempt + 2}/{max_retries})")
+                        import time
+                        time.sleep(5)  # Short delay for other errors
+                        continue
+                    return None
         
         return None
     
@@ -700,10 +751,10 @@ class ContentGenerationEngine:
     def analyze_image(self, image_path: str) -> Optional[Dict[str, Any]]:
         """Analyze image using the best available model."""
         
-        # Priority order: LLaVA 13B Standalone > Gemini (fallback)
-        if self.llava_standalone_analyzer and self.llava_standalone_analyzer.available:
-            print("[INFO] Using LLaVA 13B Standalone")
-            result = self.analyze_image_with_llava_standalone(image_path)
+        # Priority order: Ollama Direct > Gemini (fallback)
+        if self.ollama_analyzer and self.ollama_analyzer.available:
+            print("[INFO] Using Ollama Direct")
+            result = self.analyze_image_with_ollama_direct(image_path)
             if result:
                 return result
         
@@ -719,7 +770,7 @@ class ContentGenerationEngine:
             "category": "Thing",
             "subcategory": "Other",
             "tags": ["AI", "Analyzed"],
-            "score": 6,
+            "score": 3,  # Use 1-5 scale
             "critique": "Analysis failed - using placeholder data"
         }
 
@@ -920,12 +971,15 @@ class MultiStageProcessingPipeline:
                 else:
                     tags_str = str(tags)[:50]  # Limit to 50 chars
                 
-                # Stars representation
-                stars = '*' * min(score, 5) if score > 0 else '*'
+                # Stars representation  
+                # Fix: Handle None score to prevent comparison error
+                if score is None or not isinstance(score, (int, float)):
+                    score = 0
+                stars = '*' * min(int(score), 5) if score > 0 else '*'
                 
                 # Detailed progress with results
                 if status_queue:
-                    status_queue.put(f"[OK] {category} | {subcategory} | {tags_str} | {stars} ({score}/10)")
+                    status_queue.put(f"[OK] {category} | {subcategory} | {tags_str} | {stars} ({score}/5 stars)")
                 
                 result = {
                     'file_path': image_path,
