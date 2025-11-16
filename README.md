@@ -1,6 +1,6 @@
 # AI Image Analyzer v2.0 - Local AI-Powered Image Analysis
 
-![AI Image Analyzer](logo-ai-analyzer.jpg)
+![AI Image Analyzer](https://repository-images.githubusercontent.com/1023260823/4a6294b7-6431-4fbe-9a7d-8d6e89724cb1)
 
 **A powerful, local-first, AI-powered image analysis tool that automatically tags, rates, and describes your images using advanced AI models running locally on your machine.**
 
@@ -243,3 +243,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 - **Issues**: Report bugs or request features via GitHub Issues
 - **Discussions**: Join the community discussions for tips and troubleshooting
 - **Documentation**: Check the README for the latest setup instructions
+
